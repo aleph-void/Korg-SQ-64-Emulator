@@ -1,11 +1,12 @@
 {
   "format": "sq64-requirements",
-  "version": "0.2.0",
+  "version": "0.5.0",
   "profiles": {
     "image": "Bounded full-system VSB structural checks",
     "hardware": "Device contract, including physical evidence and declared feature behavior",
     "korg-compatible": "Hardware contract plus optional published Korg behavior compatibility",
-    "software": "Bounded candidate execution against the documented emulator interface; excludes physical/electrical certification"
+    "software": "Bounded candidate execution against the documented emulator interface; excludes physical/electrical certification",
+    "application-only": "Strict application-only acceptance: software profile plus pinned recovery policy, preserved recovery bytes and bounded installation/runtime evidence; missing evidence is rejection"
   },
   "requirements": [
     {
@@ -17,7 +18,8 @@
         "image",
         "software",
         "hardware",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "image-contract",
       "evidenceKinds": [
@@ -35,7 +37,8 @@
         "image",
         "software",
         "hardware",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "image-contract",
       "evidenceKinds": [
@@ -53,7 +56,8 @@
         "image",
         "software",
         "hardware",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "image-contract",
       "evidenceKinds": [
@@ -71,7 +75,8 @@
         "image",
         "software",
         "hardware",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "image-contract",
       "evidenceKinds": [
@@ -89,7 +94,8 @@
         "image",
         "software",
         "hardware",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "image-contract",
       "evidenceKinds": [
@@ -107,7 +113,8 @@
         "image",
         "software",
         "hardware",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "image-contract",
       "evidenceKinds": [
@@ -125,7 +132,8 @@
         "image",
         "software",
         "hardware",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "image-contract",
       "evidenceKinds": [
@@ -142,7 +150,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -164,7 +173,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -186,7 +196,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -208,7 +219,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -249,7 +261,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -272,7 +285,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -295,7 +309,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -320,7 +335,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -343,7 +359,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -365,7 +382,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -387,7 +405,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -410,7 +429,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -432,7 +452,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -456,7 +477,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -498,7 +520,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -522,7 +545,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -544,7 +568,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -568,7 +593,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -613,7 +639,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -655,7 +682,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -678,7 +706,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -804,7 +833,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -845,7 +875,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -869,7 +900,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -893,7 +925,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -914,7 +947,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -937,7 +971,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -959,7 +994,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -974,6 +1010,226 @@
       ]
     },
     {
+      "id": "PROJECT-001",
+      "title": "Create project",
+      "shall": "Provide a documented operation that creates a new project with the declared default state in the current workspace without modifying any saved project slot.",
+      "verification": "Create new projects over empty and fully populated catalogs; compare the exported workspace against declared defaults and digest-compare all 64 saved slots before and after.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible",
+        "application-only"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "documented-operation",
+        "declared-defaults",
+        "empty-catalog",
+        "populated-catalog",
+        "saved-slot-guards"
+      ]
+    },
+    {
+      "id": "PROJECT-002",
+      "title": "Load project",
+      "shall": "Load any saved project slot into the current workspace exactly as committed, and report an empty or invalid slot without changing the workspace.",
+      "verification": "Load every populated slot holding distinct synthetic data and compare exported workspace bytes; attempt empty and corrupted slots, requiring an explicit report and an unchanged workspace.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible",
+        "application-only"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "every-populated-slot",
+        "exact-reproduction",
+        "empty-slot-report",
+        "invalid-slot-report",
+        "workspace-unchanged-on-rejection"
+      ]
+    },
+    {
+      "id": "PROJECT-003",
+      "title": "Save project",
+      "shall": "Save the current workspace to any selected project slot only through an explicit documented operation, modify only that slot, and report completion only after the data is committed.",
+      "verification": "Save distinct data to first, middle and last slots and over an existing project; digest-compare untouched slots and read back after normal shutdown and cold restart.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible",
+        "application-only"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "first-middle-last-slots",
+        "overwrite-existing",
+        "explicit-operation-only",
+        "completion-report",
+        "untouched-slot-guards",
+        "shutdown-cold-readback"
+      ]
+    },
+    {
+      "id": "PROJECT-004",
+      "title": "Delete project",
+      "shall": "Delete any saved project slot only through an explicit documented operation, leave the slot observably empty, and preserve every other slot, the current workspace and settings.",
+      "verification": "Delete populated first, middle and last slots and verify emptiness by load attempt and export after restart; repeat deletion of an empty slot; interrupt delete phases in software, requiring the previous project or a valid empty slot; digest-compare remaining slots, workspace and settings.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible",
+        "application-only"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "first-middle-last-slots",
+        "explicit-operation-only",
+        "observably-empty",
+        "empty-after-restart",
+        "repeated-delete",
+        "interrupted-delete",
+        "other-slot-workspace-settings-guards"
+      ]
+    },
+    {
+      "id": "GLOBAL-001",
+      "title": "Global settings mode",
+      "shall": "Enter a documented global settings mode from the GLOBAL key during normal operation and leave it, with browsing alone changing no workspace, saved-slot or committed-settings data.",
+      "verification": "Enter and exit global mode while stopped and while sequencing, browse every settings page without committing, and digest-compare the exported workspace, all 64 saved slots and the global record.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible",
+        "application-only"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "global-key-entry",
+        "documented-exit",
+        "browse-without-commit",
+        "entry-while-sequencing",
+        "workspace-slot-settings-guards"
+      ]
+    },
+    {
+      "id": "GLOBAL-002",
+      "title": "Edit global settings",
+      "shall": "Allow editing every supported global setting, apply committed edits to device behavior and the exported global record, and preserve them over normal shutdown and cold restart without changing project, control or scale data.",
+      "verification": "Edit each documented global field at its boundary values, compare the exported global record, observe a behavioral effect for each functional field, read back after normal shutdown and cold restart, and digest-compare projects, controls and scales.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible",
+        "application-only"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "each-documented-field",
+        "boundary-values",
+        "export-match",
+        "behavioral-effect",
+        "shutdown-cold-readback",
+        "non-global-guards"
+      ]
+    },
+    {
+      "id": "PATTERN-001",
+      "title": "Pattern selection",
+      "shall": "Select any of the 16 patterns of each of the four tracks as the track's active pattern through a documented operation from the PATTERN key, and make the active selection observable.",
+      "verification": "Select every pattern slot on every track holding distinct synthetic data; confirm the reported selection and that sequencing and export follow the selected pattern.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible",
+        "application-only"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "pattern-key-entry",
+        "every-track",
+        "all-16-slots",
+        "selection-report",
+        "selected-pattern-effective"
+      ]
+    },
+    {
+      "id": "PATTERN-002",
+      "title": "Pattern integrity",
+      "shall": "Preserve every non-selected pattern across selection changes and edits, and keep each project's pattern presence map consistent with its stored patterns.",
+      "verification": "Fill all 64 patterns with distinct synthetic data, switch and edit repeatedly, digest-compare non-selected patterns, and compare presence bytes against stored pattern data after save and normal restart.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible",
+        "application-only"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "non-selected-preserved",
+        "repeated-switching",
+        "edit-isolation",
+        "presence-map-consistency",
+        "save-restart-consistency"
+      ]
+    },
+    {
+      "id": "SHIFT-001",
+      "title": "Shift-modified functions",
+      "shall": "Treat SHIFT as a modifier only: declare every supported SHIFT-modified function or mode, perform each declared function only while SHIFT is held with its companion control, and cause no state change from SHIFT alone or from undeclared combinations.",
+      "verification": "Exercise every declared SHIFT combination with press/release ordering variants, then SHIFT alone and undeclared combinations with explicit no-effect expectations; digest-compare the workspace, saved slots and settings afterward. A candidate declaring no SHIFT functions still requires the no-effect cases.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible",
+        "application-only"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "declared-combinations",
+        "press-release-ordering",
+        "shift-alone-no-effect",
+        "undeclared-combination-guards",
+        "state-guards"
+      ]
+    },
+    {
       "id": "VUP-001",
       "title": "Discovery",
       "shall": "Report a supported protocol and nonzero packet size, with truthful capabilities.",
@@ -981,7 +1237,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -1002,7 +1259,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -1024,7 +1282,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -1046,7 +1305,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -1069,7 +1329,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -1092,7 +1353,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -1114,7 +1376,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -1135,7 +1398,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -1156,7 +1420,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -1178,7 +1443,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -1201,7 +1467,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -1224,7 +1491,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -1247,7 +1515,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -1269,7 +1538,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -1292,7 +1562,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -1314,7 +1585,8 @@
       "profiles": [
         "hardware",
         "software",
-        "korg-compatible"
+        "korg-compatible",
+        "application-only"
       ],
       "source": "board-contract",
       "evidenceKinds": [
@@ -1410,6 +1682,152 @@
         "declared-deviations",
         "rationale",
         "no-expected-failure-passes"
+      ]
+    },
+    {
+      "id": "RECOVERY-001",
+      "title": "Preserved recovery image",
+      "shall": "Preserve the entire first 64 KiB and all reviewed recovery code/data dependencies byte-for-byte against an explicitly approved baseline; identify the actual installed baseline by content, not a version string.",
+      "verification": "Execute protected-image comparison with a reviewer-pinned policy; independently review dependency closure, including SPI-loaded code/data, vectors, startup, panel entry, USB, installer and RAM writer. Verify baseline content and approved installer/observer artifacts.",
+      "profiles": [
+        "application-only"
+      ],
+      "source": "application-only-contract",
+      "evidenceKinds": [
+        "review",
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "installed-baseline-content",
+        "reset-and-vectors",
+        "startup-and-recovery-chord",
+        "usb-and-updater",
+        "ram-writer",
+        "external-dependency-closure",
+        "approved-installer-and-observer"
+      ]
+    },
+    {
+      "id": "RECOVERY-002",
+      "title": "No recovery mutation",
+      "shall": "Perform no erase or program attempts on protected recovery, reserved or calibration regions during installation or application execution, even if an operation would restore identical bytes or be rejected by hardware.",
+      "verification": "Validate complete installation and runtime mutation captures. Review capture coverage of flash aliases, CPU, DMA, SPI commands and every programming path; before/after equality alone does not pass.",
+      "profiles": [
+        "application-only"
+      ],
+      "source": "application-only-contract",
+      "evidenceKinds": [
+        "hardware",
+        "emulator"
+      ],
+      "quantitative": false,
+      "cases": [
+        "zero-protected-install-writes",
+        "zero-protected-runtime-writes",
+        "erase-before-rewrite-rejected",
+        "all-aliases-and-dma-observed",
+        "capture-start-to-completion"
+      ]
+    },
+    {
+      "id": "RECOVERY-003",
+      "title": "No irreversible configuration",
+      "shall": "Never unlock or program option bytes, write OTP, change protection/boot/debug configuration, issue mass/chip erase or alter persistent flash status/security configuration in this profile.",
+      "verification": "Reject every prohibited or unclassified persistent mutation attempt in both captures, and review instrumentation coverage of irreversible controls. Missing register/command modeling is rejection, not an ignored event.",
+      "profiles": [
+        "application-only"
+      ],
+      "source": "application-only-contract",
+      "evidenceKinds": [
+        "hardware",
+        "emulator"
+      ],
+      "quantitative": false,
+      "cases": [
+        "option-unlock-and-write",
+        "otp",
+        "protection-and-rdp",
+        "boot-and-debug",
+        "chip-and-mass-erase",
+        "persistent-status-security",
+        "unknown-operation-rejection"
+      ]
+    },
+    {
+      "id": "RECOVERY-004",
+      "title": "Persistent write allowlist",
+      "shall": "Restrict candidate changes and every persistent mutation to reviewed phase-specific application/user-data ranges, preserving all other storage; respect approved page and erase geometry.",
+      "verification": "Validate non-overlapping policy ranges, protected-region exclusion, candidate destination changes, exact event ranges and geometry. A mutation crossing an allowlist boundary fails even if its start address is permitted. Installation traces must cover every changed payload byte.",
+      "profiles": [
+        "application-only"
+      ],
+      "source": "application-only-contract",
+      "evidenceKinds": [
+        "review",
+        "hardware",
+        "emulator"
+      ],
+      "quantitative": false,
+      "cases": [
+        "reviewed-storage-ownership",
+        "installation-ranges",
+        "runtime-ranges",
+        "reserved-and-calibration-guards",
+        "cross-boundary-rejection",
+        "page-and-erase-geometry",
+        "changed-byte-program-coverage"
+      ]
+    },
+    {
+      "id": "RECOVERY-005",
+      "title": "Recovery before application",
+      "shall": "Enter trusted recovery from the physical startup chord before executing custom application code, with the application absent, corrupt or immediately faulting; keep the recovery transport and approved restore operation usable.",
+      "verification": "Cold boot using modeled or physical panel inputs, record execution ordering and restore traffic. Include a valid-checksum bad application, invalid vectors and corrupt application metadata; do not patch runtime state to force update mode.",
+      "profiles": [
+        "application-only"
+      ],
+      "source": "application-only-contract",
+      "evidenceKinds": [
+        "hardware",
+        "emulator"
+      ],
+      "quantitative": false,
+      "cases": [
+        "chord-before-application",
+        "application-absent",
+        "application-corrupt",
+        "application-immediate-fault",
+        "valid-checksum-bad-application",
+        "invalid-application-vectors",
+        "corrupt-application-metadata",
+        "approved-restore"
+      ]
+    },
+    {
+      "id": "RECOVERY-006",
+      "title": "Recovery after interrupted installation",
+      "shall": "Preserve a usable trusted recovery path after interruption at every installation phase, without relying on the custom application or previously erased recovery dependencies.",
+      "verification": "Use software fault injection before/after every persistent mutation and model partial erase/program, commit metadata and transport interruption. Prove recovery entry and a subsequent approved restore for each resulting state. Deliberate physical programming power cuts remain excluded; physical guarantees require separate evidence and enforcement.",
+      "profiles": [
+        "application-only"
+      ],
+      "source": "application-only-contract",
+      "evidenceKinds": [
+        "hardware",
+        "emulator"
+      ],
+      "quantitative": false,
+      "cases": [
+        "before-first-mutation",
+        "each-erase-boundary",
+        "each-program-boundary",
+        "partial-erase-and-program",
+        "commit-metadata",
+        "disconnect-and-timeout",
+        "cold-recovery-each-state",
+        "approved-restore-each-state",
+        "fault-model-and-coverage"
       ]
     }
   ],

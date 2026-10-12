@@ -1,10 +1,12 @@
 """Evidence accounting. Artifact integrity does not certify its observations."""
 import hashlib
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 
 from .declaration import validate_declaration, measurements_pass
 from .image import inspect
 from .validation import digest, load_json, nonempty
+from .artifacts import read_artifact
+from .recovery import PROFILE, evaluate_recovery
 
 
 def catalog():
@@ -39,24 +41,16 @@ def _artifact(item, root):
     if (any(not nonempty(item.get(k)) for k in ('procedure', 'observations', 'artifact'))
             or not digest(item.get('artifactSha256'))):
         raise ValueError('Passing evidence requires procedure, observations, artifact path and SHA-256')
-    relative = PurePosixPath(item['artifact'])
-    if (relative.is_absolute() or '..' in relative.parts or '\\' in item['artifact']
-            or ':' in item['artifact'] or not relative.parts):
-        raise ValueError('Artifact escapes evidence root')
-    if root is None:
-        return False
-    path = (root / relative).resolve()
-    if not path.is_relative_to(root):
-        raise ValueError('Artifact escapes evidence root')
-    if hashlib.sha256(path.read_bytes()).hexdigest() != item['artifactSha256']:
-        raise ValueError('Artifact digest mismatch')
-    return True
+    return read_artifact(item, root) is not None
 
 
-def evaluate(data, *, profile='hardware', evidence=None, artifact_root=None, declaration=None):
+def evaluate(data, *, profile='hardware', evidence=None, artifact_root=None, declaration=None,
+             baseline=None, recovery_policy=None, approved_policy_sha256=None, write_trace=None):
     document = catalog()
     if not isinstance(profile, str) or profile not in document['profiles']:
         raise ValueError('Unknown conformance profile')
+    if profile != PROFILE and any(value is not None for value in (baseline, recovery_policy, approved_policy_sha256, write_trace)):
+        raise ValueError('Recovery inputs require --profile application-only; they cannot be silently ignored')
     image_digest, static = inspect(data)
     requirements = {r['id']: r for r in document['requirements']}
     limits = {} if declaration is None else validate_declaration(declaration, image_digest, document['requirements'])
@@ -104,7 +98,7 @@ def evaluate(data, *, profile='hardware', evidence=None, artifact_root=None, dec
                     context = contexts[context_name]
                     if context['kind'] == 'emulator' and context.get('modelContractSha256') != model_contract_digest():
                         raise ValueError('Emulator context must identify this model contract SHA-256')
-                    kinds = requirement['evidenceKinds'] + (['emulator'] if profile == 'software' else [])
+                    kinds = requirement['evidenceKinds'] + (['emulator'] if profile in ('software', PROFILE) and not identifier.startswith('RECOVERY-') else [])
                     if context['kind'] not in kinds:
                         reasons.append('Execution kind does not satisfy the requirement')
                     if context['target'] != 'candidate':
@@ -147,20 +141,44 @@ def evaluate(data, *, profile='hardware', evidence=None, artifact_root=None, dec
             accepted[identifier] = row
     rows = [results.get(r['id']) or accepted.get(r['id']) or
             {'id': r['id'], 'status': 'not-run', 'detail': r['verification']} for r in applicable]
-    blockers = [] if profile in ('image', 'software') else list(document['releaseBlockers'])
+    blockers = [] if profile in ('image', 'software', PROFILE) else list(document['releaseBlockers'])
     if profile != 'image' and declaration is None:
         blockers.append('Candidate feature declaration is missing')
     if profile == 'korg-compatible' and declaration and declaration['deviations']:
         blockers.append('Declared deviations prevent a strict Korg compatibility claim')
+    recovery = None
+    if profile == PROFILE:
+        recovery = evaluate_recovery(data, baseline=baseline, policy_data=recovery_policy,
+                                     approved_policy_sha256=approved_policy_sha256, trace_data=write_trace,
+                                     evidence=evidence, contexts=contexts, artifact_root=artifact_root,
+                                     spec_version=document['version'], model_hash=model_contract_digest())
+        for check in recovery['checks']:
+            row = next(r for r in rows if r['id'] == check['id'])
+            row['executedCheck'] = check
+            if check['status'] == 'fail':
+                row.update(status='fail', detail=check['detail'])
+        if recovery['status'] != 'pass':
+            blockers.append(recovery.get('error', 'A mandatory recovery policy check failed'))
+        # This profile is an acceptance gate: missing evidence is rejection,
+        # while individual not-run rows retain their honest coverage status.
+        if any(row['status'] != 'pass' for row in rows):
+            blockers.append('Application-only acceptance requires every applicable requirement to pass')
     status = ('fail' if any(r['status'] == 'fail' for r in rows) else
               'incomplete' if blockers or any(r['status'] != 'pass' for r in rows) else 'pass')
-    return {'format': 'sq64-conformance-report', 'version': 2, 'specVersion': document['version'],
+    if profile == PROFILE and (blockers or status != 'pass'):
+        status = 'fail'
+    report = {'format': 'sq64-conformance-report', 'version': 2, 'specVersion': document['version'],
             'profile': profile, 'imageSha256': image_digest, 'status': status, 'results': rows,
             'modelContractSha256': model_contract_digest(),
             'counts': {s: sum(r['status'] == s for r in rows) for s in ('pass', 'fail', 'not-run')},
             'releaseBlockers': blockers, 'contexts': contexts, 'declaration': declaration,
             'claim': 'Bounded checks for the named profile; not proof for every input or event schedule',
             'hardwareValidated': False, 'externalEvidenceAccepted': bool(accepted)}
+    if recovery is not None:
+        report.update(recovery=recovery, recoveryGuaranteed=False,
+                      acceptance='accepted' if status == 'pass' else 'rejected',
+                      claim='Application-only risk-reduction checks within supplied evidence; no guarantee against bricking')
+    return report
 
 
 def evidence_template(data, profile):

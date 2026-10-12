@@ -107,7 +107,7 @@ Button and encoder actions wait for queued input and its virtual scan/debounce i
 
 ## Debugging firmware
 
-**Validate Image** runs the pinned SQ-64 spec v0.2.0 `image` profile against the exact file loaded into the emulator. All seven requirements appear with pass/fail/not-run results, the file hash and the spec revision. **Save validation report** exports JSON; execution and debug reports also include the last validation. It works while running, paused, stopped at a breakpoint, or faulted without changing CPU/debugger state. Updater and backup transaction locks disable the action.
+**Validate Image** runs the pinned SQ-64 spec v0.5.0 `image` profile against the exact file loaded into the emulator. All seven requirements appear with pass/fail/not-run results, the file hash and the spec revision. **Save validation report** exports JSON; execution and debug reports also include the last validation. It works while running, paused, stopped at a breakpoint, or faulted without changing CPU/debugger state. Updater and backup transaction locks disable the action.
 
 The spec requires a full VSB: raw BIN and ELF inputs fail `PKG-001` and leave six checks not-run. The original file is retained across resets, so results do not cover later emulated storage writes or installed updates. A successful image replacement clears validation. These are package checks, not software execution or hardware certification. No network fetch, upload, or Python runtime is needed in the browser.
 

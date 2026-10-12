@@ -1,7 +1,7 @@
 {
   "format": "sq64-model-contract",
   "version": 1,
-  "specVersion": "0.2.0",
+  "specVersion": "0.5.0",
   "claim": "Software interface facts observed in supplied-image execution; independent physical confirmation remains incomplete",
   "cpu": {
     "architecture": "ARMv7E-M",
