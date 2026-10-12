@@ -34,7 +34,7 @@ test('standalone emulator accepts a separate update image and submits it to the 
 
 test('embedded update script stages the second image and locks the outer updater until it completes', async ({ page }) => {
   test.setTimeout(90000);
-  await page.goto('/'); await page.locator('#browser-workbench summary').click();
+  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   await panel.locator('#load-probe').click();
   await expect(panel.locator('#status')).toContainText('Running');
@@ -80,7 +80,7 @@ test('missing update file fails before script startup; stopping during USB start
 });
 
 test('manual embedded transfer locks the outer updater and Stop releases both workbenches', async ({ page }) => {
-  await page.goto('/'); await page.locator('#browser-workbench summary').click();
+  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   const bytes = Buffer.alloc(65536); bytes.writeUInt32LE(0x20040000, 0); bytes.writeUInt32LE(0x200009, 4); bytes.set([0xfe, 0xe7], 8);
   await panel.locator('#image').setInputFiles({ name: 'loop.bin', mimeType: 'application/octet-stream', buffer: bytes });

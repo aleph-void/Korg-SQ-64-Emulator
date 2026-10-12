@@ -5,7 +5,7 @@ test('independently authored ARM probe backs up and stages an update without Web
   test.setTimeout(90000);
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(() => { navigator.requestMIDIAccess = () => { throw Error('Web MIDI must not be requested for the emulator'); }; });
-  await page.goto('/'); await page.locator('#browser-workbench summary').click();
+  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   await panel.getByRole('button', {name: 'Load original integration probe'}).click();
   await expect(panel.locator('#status')).toContainText('Running');
@@ -30,7 +30,7 @@ test('independently authored ARM probe backs up and stages an update without Web
 });
 
 test('control surface records inputs and requests startup chords (UI state only)', async ({page}) => {
-  await page.goto('/'); await page.locator('#browser-workbench summary').click();
+  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   await panel.locator('#load-probe').click(); await expect(panel.locator('#status')).toContainText('Running');
   await panel.locator('#version').click();
@@ -48,7 +48,7 @@ test('control surface records inputs and requests startup chords (UI state only)
 });
 
 test('firmware LED brightness is visible on named controls and distinguishes dim pads', async ({page}) => {
-  await page.goto('/'); await page.locator('#browser-workbench summary').click();
+  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   await panel.locator('#load-probe').click();
   await expect(panel.locator('#status')).toContainText('Running');
@@ -68,7 +68,7 @@ test('firmware LED brightness is visible on named controls and distinguishes dim
 });
 
 test('top-edge output lights show independent levels and clear on shutdown and reload', async ({page}) => {
-  await page.goto('/'); await page.locator('#browser-workbench summary').click();
+  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   await expect(panel.locator('[data-output]')).toHaveCount(17);
   await expect(panel.locator('[data-output].lit')).toHaveCount(0);
@@ -92,7 +92,7 @@ test('top-edge output lights show independent levels and clear on shutdown and r
 });
 
 test('parameter knobs normalize trackpad movement, support fine adjustment and release drags', async ({page}) => {
-  await page.goto('/'); await page.locator('#browser-workbench summary').click();
+  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   await panel.locator('#load-probe').click(); await expect(panel.locator('#status')).toContainText('Running');
   await page.evaluate(async () => {
@@ -121,7 +121,7 @@ test('power button lets ARM firmware release power, disconnects MIDI, and restar
   bytes.set([0x06,0x48,0x80,0x21,0x01,0x60,0x06,0x4a,0x42,0xf2,0,3,
     0x11,0x68,0x19,0x42,0xfc,0xd1,0x4f,0xf4,0,1,1,0x60,0xfe,0xe7,0,0,
     0x18,4,2,0x40,0x10,8,2,0x40], 8);
-  await page.goto('/'); await page.locator('#browser-workbench summary').click();
+  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   await panel.locator('#image').setInputFiles({name:'original-power-probe.bin',mimeType:'application/octet-stream',buffer:bytes});
   await expect(panel.locator('#run')).toBeEnabled(); await panel.locator('#run').click();
@@ -135,7 +135,7 @@ test('power button lets ARM firmware release power, disconnects MIDI, and restar
 });
 
 test('update panel links the official firmware ZIP without any in-app download', async ({page}) => {
-  await page.goto('/'); await page.locator('#browser-workbench summary').click();
+  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   await expect(panel.locator('#boot-official')).toHaveCount(0);
   await page.getByRole('button', {name: 'Update firmware', exact: true}).click();

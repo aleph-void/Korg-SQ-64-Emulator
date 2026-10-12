@@ -43,7 +43,7 @@ for (const embedded of [false, true]) test(`critical pass terminates the actual 
     };
   });
   await page.goto(embedded ? '/' : '/emulator/');
-  if (embedded) await page.locator('#browser-workbench summary').click();
+  if (embedded) await page.locator('#browser-workbench[open]').waitFor();
   const panel = embedded ? page.frameLocator('#emulator-frame') : page;
   await panel.locator('#image').setInputFiles(firmware());
   await panel.getByText('Developer debugging', {exact: true}).click();
@@ -77,7 +77,7 @@ for (const embedded of [false, true]) test(`critical pass terminates the actual 
     expect(blocked.state.report).toEqual(execution);
     await page.frames().find(frame => frame.url().includes('/emulator/')).goto('/emulator/');
     await expect(panel.locator('#safety-stop')).toBeVisible();
-    await page.locator('#browser-workbench summary').click();
+    await page.locator('#browser-workbench[open]').waitFor();
     await expect(page.locator('#emulator-safety-stop')).toBeVisible();
   }
   checkPatched();
@@ -98,7 +98,7 @@ test('a critical detector that fails does not terminate execution', async ({page
 
 test('Validate Image preserves a stopped debugger and exports the exact loaded image checks', async ({page}) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message));
-  await page.goto('/'); await page.locator('#browser-workbench summary').click();
+  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   await expect(panel.getByRole('button', {name: 'Validate Image', exact: true})).toBeDisabled();
   await panel.locator('#image').setInputFiles(firmware());
@@ -144,7 +144,7 @@ test('validation reports failures, clears replacement results and respects trans
   await page.locator('#image').setInputFiles(raw); await page.locator('#validate-image').click();
   await expect(page.locator('#validation-summary')).toHaveText('FAIL · 0 passed · 1 failed · 6 not run');
   await expect(page.locator('#validation-format')).toBeVisible();
-  await page.goto('/'); await page.locator('#browser-workbench summary').click();
+  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
   const panel = page.frameLocator('#emulator-frame'); await panel.locator('#image').setInputFiles(firmware());
   await page.evaluate(() => window.sq64Emulator.setLocked(true));
   await expect(panel.locator('#validate-image')).toBeDisabled();

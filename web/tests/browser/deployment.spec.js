@@ -2,7 +2,7 @@ import {test, expect} from './fixtures.js';
 test('export works beneath a repository path with no native service', async ({page}) => {
   const failed = []; page.on('pageerror', e => failed.push(e.message));
   page.on('response', r => { if (!r.ok()) failed.push(`${r.status()} ${r.url()}`); });
-  await page.goto('/dist/'); await page.locator('#browser-workbench summary').click();
+  await page.goto('/dist/'); await page.locator('#browser-workbench[open]').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   await panel.locator('#load-probe').click(); await expect(panel.locator('#status')).toContainText('Running');
   await panel.locator('#validate-image').click();
@@ -14,7 +14,7 @@ test('export works beneath a repository path with no native service', async ({pa
 });
 test('expanded workbench fits desktop and mobile layouts', async ({page}, testInfo) => {
   await page.setViewportSize({width: 1440, height: 1000});
-  await page.goto('/'); await page.locator('#browser-workbench summary').click();
+  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
   await expect(page.frameLocator('#emulator-frame').locator('[data-control]')).toHaveCount(85);
   await page.screenshot({path: testInfo.outputPath('desktop.png'), fullPage: true});
   await page.setViewportSize({width: 390, height: 844});

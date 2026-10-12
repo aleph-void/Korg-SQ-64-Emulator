@@ -11,7 +11,7 @@ const badFile = {name: 'invalid.bin', mimeType: 'application/octet-stream', buff
 for (const embedded of [true, false]) {
   test(`${embedded ? 'embedded' : 'standalone'} file selection enables Power on and keeps load failures visible`, async ({page}) => {
     await page.goto(embedded ? '/' : '/emulator/');
-    if (embedded) await page.locator('#browser-workbench summary').click();
+    if (embedded) await page.locator('#browser-workbench[open]').waitFor();
     const panel = embedded ? page.frameLocator('#emulator-frame') : page;
     await expect(panel.locator('#reset')).toBeDisabled();
     await panel.locator('#image').setInputFiles(badFile);
@@ -45,7 +45,7 @@ for (const embedded of [true, false]) {
 }
 
 test('encoder turns cross noon in both directions and discard partial gestures on reset and lock', async ({page}) => {
-  await page.goto('/'); await page.locator('#browser-workbench summary').click();
+  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   await panel.locator('#image').setInputFiles(firmware());
   await expect(panel.locator('[data-encoder=param1]')).toBeEnabled();
@@ -89,7 +89,7 @@ test('updater keeps acknowledgements and selected files when switching Vue tabs,
 });
 
 test('parameter knob out-and-back drags and wheel turns do not drift on reversal', async ({page}) => {
-  await page.goto('/'); await page.locator('#browser-workbench summary').click();
+  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   await panel.locator('#image').setInputFiles(firmware());
   await page.evaluate(() => {

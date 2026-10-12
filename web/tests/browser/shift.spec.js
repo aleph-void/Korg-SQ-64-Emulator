@@ -1,7 +1,7 @@
 import {test, expect} from './fixtures.js';
 
 async function setup(page) {
-  await page.goto('/'); await page.locator('#browser-workbench summary').click();
+  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   const buffer = Buffer.alloc(65536);
   buffer.writeUInt32LE(0x20040000, 0); buffer.writeUInt32LE(0x200009, 4); buffer.set([0xfe, 0xe7], 8);

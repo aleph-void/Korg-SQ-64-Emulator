@@ -39,7 +39,7 @@ test('a stalled state consumer cannot queue snapshots or prevent execution and p
 });
 
 test('panel paints the latest burst once and reuses an unchanged display', async ({page}) => {
-  await page.goto('/'); await page.locator('#browser-workbench summary').click();
+  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   await panel.locator('#load-probe').click(); await expect(panel.locator('#status')).toContainText('Running');
   await page.evaluate(async () => {
@@ -70,7 +70,7 @@ test('panel paints the latest burst once and reuses an unchanged display', async
 });
 
 test('pad brightness transitions soften running PWM changes but paused/debug snapshots and button presses are immediate', async ({page}) => {
-  await page.goto('/'); await page.locator('#browser-workbench summary').click();
+  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   await panel.locator('#load-probe').click(); await expect(panel.locator('#status')).toContainText('Running');
   await page.evaluate(async () => {

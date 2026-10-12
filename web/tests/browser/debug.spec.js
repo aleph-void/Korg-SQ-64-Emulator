@@ -9,7 +9,7 @@ const firmware = () => {
 
 test('optional debugger stops, steps, inspects, exports and resets without MIDI resuming it', async ({page}) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message));
-  await page.goto('/'); await page.locator('#browser-workbench summary').click();
+  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   await panel.getByText('Developer debugging', {exact: true}).click();
   await expect(panel.locator('#debug-enabled')).toBeDisabled();
@@ -55,7 +55,7 @@ test('optional debugger stops, steps, inspects, exports and resets without MIDI 
 });
 
 test('debug controls reject invalid input, respect transaction locks and clear on image replacement', async ({page}) => {
-  await page.goto('/'); await page.locator('#browser-workbench summary').click();
+  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   await panel.locator('#image').setInputFiles(firmware());
   await panel.getByText('Developer debugging', {exact: true}).click();
