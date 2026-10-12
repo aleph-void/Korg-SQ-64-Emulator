@@ -85,7 +85,7 @@ async function api(action, data = {}, scripted = false) {
   if (result && typeof result.loaded === 'boolean') {
     const snapshot = { ...result, locked: device.locked, scripting: device.scripting, updating: device.updating };
     update(snapshot);
-    if (['load', 'reset'].includes(action)) resetKey.value++;
+    if (['load', 'reset', 'restore'].includes(action)) resetKey.value++;
     return snapshot;
   }
   return result;
@@ -198,6 +198,11 @@ async function loadProbe() {
 function reset(mode) {
   return act(async () => {
     await api('reset', { mode });
+  });
+}
+function restoreFirmware() {
+  return act(async () => {
+    await api('restore');
   });
 }
 function releaseStartup() {
@@ -323,7 +328,15 @@ onBeforeUnmount(() => {
           @click="reset('update')"
         >
           Update mode</button
-        ><button id="release" :disabled="interactionDisabled" @click="releaseStartup">Release startup buttons</button>
+        ><button id="release" :disabled="interactionDisabled" @click="releaseStartup">Release startup buttons</button
+        ><button
+          id="restore-firmware"
+          title="Discard saved projects, settings and staged updates, and return to the originally loaded image"
+          :disabled="controlsDisabled"
+          @click="restoreFirmware"
+        >
+          Restore firmware
+        </button>
       </div>
     </div>
     <details id="firmware-update" class="scripts">
@@ -384,7 +397,8 @@ onBeforeUnmount(() => {
         <p class="hint">
           Version holds GLOBAL at power-on; Update holds GLOBAL + PATTERN. Release the startup buttons after the screen
           appears. Use Power off and wait for shutdown before restarting to preserve projects. Power on resets
-          immediately; closing the page discards this session.
+          immediately; closing the page discards this session. Restore firmware discards saved projects, settings and
+          staged updates, returning the device to the originally loaded image.
         </p>
       </section>
       <section>

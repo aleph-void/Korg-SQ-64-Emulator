@@ -82,6 +82,15 @@ async function action(name, data) {
     if (mode !== 'normal') machine.event({type: 'button', control: 'global', down: true});
     if (mode === 'update') machine.event({type: 'button', control: 'pattern', down: true});
     running = !debug.enabled;
+  } else if (name === 'restore') {
+    // Unlike reset, restore discards emulated flash: rebuild from the
+    // originally loaded bytes as if the image had just been loaded.
+    running = false;
+    const image = await loadImage(loadedBytes);
+    machine.close(); machine = new Machine(engine, image, {...options, onMidi});
+    inputs = new InteractiveInputs(machine);
+    execution = new ExecutionSlice();
+    mode = 'normal';
   } else if (name === 'event') inputs.event(data);
   else if (name === 'midi') { machine.event({type: 'midi', data: Array.from(data)}); if (!machine.debug.enabled) running = true; }
   else if (name === 'replay') machine.replay(data);

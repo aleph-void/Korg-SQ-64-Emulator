@@ -15,7 +15,7 @@ npm run preview
 
 ## Emulator shutdown and saved data
 
-Use **Power off** and wait for **Powered off** before restarting after a restore. Firmware saves the current workspace and project catalog during this shutdown. **Power on**, **Version mode** and **Update mode** reset immediately. Closing or reloading the page discards the session, including its emulated flash; retain a downloaded backup outside the browser.
+Use **Power off** and wait for **Powered off** before restarting after a restore. Firmware saves the current workspace and project catalog during this shutdown. **Power on**, **Version mode** and **Update mode** reset immediately. **Restore firmware** returns the device to its default state: it discards the emulated flash — saved projects, settings and staged updates — and rebuilds the originally loaded image as if it had just been loaded, stopped until the next Power on. Closing or reloading the page discards the session, including its emulated flash; retain a downloaded backup outside the browser.
 
 The panel shows firmware-driven LED brightness and display output, with updates paced near 60 Hz and painted on browser animation frames. Execution batches adapt to host speed to keep input responsive; emulated time still depends on instruction throughput. Its top edge includes MOD, PITCH and GATE indicators for tracks A–C and eight trigger indicators for track D. These follow the CV stream, gate pins and trigger latch, using the Aleph Void accent color. Brightness is a relative activity estimate; calibrated jack voltages and CV/gate/sync traces are not implemented.
 

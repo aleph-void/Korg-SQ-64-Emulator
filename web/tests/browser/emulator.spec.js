@@ -134,6 +134,28 @@ test('power button lets ARM firmware release power, disconnects MIDI, and restar
   expect(await page.evaluate(() => window.sq64Emulator.output.state)).toBe('connected');
 });
 
+test('restore firmware discards emulated flash and returns to the freshly loaded image', async ({page}) => {
+  // Independently authored spi-write-probe.s: program one byte at SPI 0x40000.
+  const bytes = Buffer.alloc(65536);
+  bytes.writeUInt32LE(0x20040000, 0); bytes.writeUInt32LE(0x200009, 4);
+  bytes.set([0x09,0x48,0x0a,0x49,0x0a,0x4a,0x0b,0x4b,0x02,0x60,0x06,0x24,0x0c,0x70,0x03,0x60,
+    0x02,0x60,0x02,0x24,0x0c,0x70,0x04,0x24,0x0c,0x70,0x00,0x24,0x0c,0x70,0x0c,0x70,
+    0x0c,0x70,0x03,0x60,0xfe,0xe7,0,0,
+    0x18,0x04,0x02,0x40,0x0c,0x38,0x00,0x40,0x00,0x00,0x00,0x02,0x00,0x02,0x00,0x00], 8);
+  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
+  const panel = page.frameLocator('#emulator-frame');
+  await expect(panel.locator('#restore-firmware')).toBeDisabled();
+  await panel.locator('#image').setInputFiles({name: 'original-spi-write-probe.bin', mimeType: 'application/octet-stream', buffer: bytes});
+  await expect(panel.locator('#run')).toBeEnabled(); await panel.locator('#run').click();
+  await expect(panel.locator('#status')).toContainText('Running');
+  await expect.poll(() => page.evaluate(async () => (await window.sq64Emulator.request('storage')).spi[0x40000])).toBe(0);
+  await panel.locator('#restore-firmware').click();
+  await expect(panel.locator('#status')).toHaveText('Firmware loaded · press Power on to start');
+  expect(await page.evaluate(async () => (await window.sq64Emulator.request('storage')).spi[0x40000])).toBe(255);
+  await panel.locator('#reset').click();
+  await expect(panel.locator('#status')).toContainText('Running');
+});
+
 test('update panel links the official firmware ZIP without any in-app download', async ({page}) => {
   await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
   const panel = page.frameLocator('#emulator-frame');
