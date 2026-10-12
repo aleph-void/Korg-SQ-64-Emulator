@@ -1,4 +1,4 @@
-import {test, expect} from '@playwright/test';
+import {test, expect} from './fixtures.js';
 test('export works beneath a repository path with no native service', async ({page}) => {
   const failed = []; page.on('pageerror', e => failed.push(e.message));
   page.on('response', r => { if (!r.ok()) failed.push(`${r.status()} ${r.url()}`); });

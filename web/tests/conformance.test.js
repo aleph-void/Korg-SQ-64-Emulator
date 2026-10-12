@@ -1,7 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {execFileSync} from 'node:child_process';
-import {readFileSync} from 'node:fs';
 import {validateImage} from '../emulator/conformance/validate.js';
 import {syntheticVsb} from './fixtures.js';
 
@@ -34,11 +33,10 @@ print(json.dumps([validate_image(base64.b64decode(s)) for s in json.load(sys.std
   assert.equal(expected.at(-1).status, 'fail'); assert.equal(expected.at(-1).counts['not-run'], 6);
 });
 
-test('conformance copies input views and metadata/UI distributions stay in sync', async () => {
+test('conformance copies input views and spec metadata distributions stay in sync', async () => {
   const wrapped = new Uint8Array(0x38100 + 16); wrapped.set(syntheticVsb(), 8);
   const view = wrapped.subarray(8, -8), expected = await validateImage(view);
   const pending = validateImage(view); view.fill(0);
   assert.deepEqual(await pending, expected);
   execFileSync(process.env.PYTHON || 'python3', ['../tools/sync_conformance.py', '--check']);
-  assert.equal(readFileSync('emulator/conformance-view.js', 'utf8'), readFileSync('../sq64_emulator/ui/conformance-view.js', 'utf8'));
 });

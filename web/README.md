@@ -1,6 +1,6 @@
 # Aleph Void SQ-64 web app
 
-All runtime content is under this directory. Serve it over HTTPS or localhost; opening `index.html` as a `file:` URL does not support module workers. The embedded emulator communicates directly with the updater using in-process MIDI-style ports. It neither requests Web MIDI permission nor creates an operating-system MIDI device. Real hardware uses Web MIDI with SysEx permission.
+The updater and browser emulator use Vue 3 single-file components, compiled by Vite. Use Node 20.19+ or 22.12+ and install dependencies before developing or building. Serve the built `dist/` directory over HTTPS or localhost; opening `index.html` as a `file:` URL does not support module workers. The embedded emulator communicates directly with the updater using in-process MIDI-style ports. It neither requests Web MIDI permission nor creates an operating-system MIDI device. Real hardware uses Web MIDI with SysEx permission.
 
 ```sh
 npm ci
@@ -8,7 +8,10 @@ npm run dev
 npm test
 npm run test:browser
 npm run build
+npm run preview
 ```
+
+`npm run dev` serves the Vue sources with hot reload. `npm run preview` serves the most recent static build. Both default to http://127.0.0.1:4173. The production export bundles Vue and the emulator worker locally, precompiles templates, and retains the content security policy without JavaScript `unsafe-eval`. The main page and `emulator/index.html` are separate entry points. Browser tests run against the production export, including a nested URL path. The optional Python workbench has its own UI in `sq64_emulator/ui/`.
 
 ## Emulator shutdown and saved data
 
@@ -19,6 +22,10 @@ The panel shows firmware-driven LED brightness and display output, with updates 
 During normal execution, pad brightness transitions take 120 ms to soften coarse PWM steps and brief dark samples in startup animations. Pressed pads, paused or faulted execution, and debugging show changes immediately. Reduced-motion preferences disable the transitions. Reported LED values and emulated timing are unchanged.
 
 Turn knobs with a vertical drag, the scroll wheel, or the arrow keys. Wheel and drag distance determine the number of steps; tiny trackpad events accumulate. Hold Shift while dragging or scrolling for four times finer adjustment. Arrow keys produce one step. Interactive steps are spaced in virtual time to avoid unintended firmware acceleration when the browser runs slower than the device.
+
+These are relative encoders. Their angle shows accumulated input steps, not the firmware's parameter value: noon is not zero, and turning back to noon does not reset a value. Firmware can clamp or wrap a parameter independently of the angle. Read the value on the firmware display. Partial gestures clear when loading/resetting the emulator, locking controls, leaving the knob, or switching to arrow-key input.
+
+Selecting a valid firmware image enables **Power on** without starting execution. Loading status and errors appear beside the file picker and in the execution section; a failed replacement keeps the previously loaded image available. The file picker permits selecting the same file again after an error.
 
 ## Debugging firmware
 

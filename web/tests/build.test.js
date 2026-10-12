@@ -12,7 +12,14 @@ test('Pages export contains only deployable web files and refuses to overwrite a
     for (const excluded of ['sq64_emulator', 'tests', 'tools', 'node_modules', 'package.json', 'recomp']) assert.equal(entries.includes(excluded), false);
     for (const needed of ['index.html', 'emulator', 'vendor', 'examples', 'CNAME', '.nojekyll']) assert.equal(entries.includes(needed), true);
     assert.equal((await readFile(join(out, 'CNAME'), 'utf8')).trim(), 'sq64.alephvoid.com');
-    for (const path of ['emulator/conformance/validate.js', 'emulator/conformance/spec.js', 'emulator/conformance/LICENSE', 'emulator/conformance-view.js']) assert.ok((await readFile(join(out, path))).length);
+    for (const path of ['emulator/index.html', 'emulator/conformance/LICENSE', 'vendor/vue-LICENSE.txt']) assert.ok((await readFile(join(out, path))).length);
+    for (const page of ['index.html', 'emulator/index.html']) {
+      const html = await readFile(join(out, page), 'utf8');
+      assert.match(html, /type="module"[^>]*src="(?:\.\/|\.\.\/)assets\//);
+      assert.doesNotMatch(html, /\{\{VERSION\}\}|\.vue|'unsafe-eval'/);
+    }
+    const assets = await readdir(join(out, 'assets'));
+    assert.ok(assets.some(name => /^worker-.*\.js$/.test(name)), 'emulator worker is included');
     assert.throws(() => execFileSync(process.execPath, ['tools/build.js', '--out', out], {stdio: 'pipe'}), /Command failed/);
   } finally { await rm(out, {recursive: true, force: true}); }
 });

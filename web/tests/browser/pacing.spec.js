@@ -1,9 +1,11 @@
-import {test, expect} from '@playwright/test';
+import {test, expect} from './fixtures.js';
 
 test('a stalled state consumer cannot queue snapshots or prevent execution and pause', async ({page}) => {
   await page.goto('/');
+  await page.waitForFunction(() => !!window.sq64Emulator);
   const result = await page.evaluate(async () => {
-    const worker = new Worker('/emulator/worker.js', {type: 'module'}), pending = new Map(), states = [];
+    window.sq64Emulator.start();
+    const worker = window.sq64Emulator.worker, pending = new Map(), states = [];
     let id = 0;
     const request = (action, data = {}) => new Promise((resolve, reject) => {
       pending.set(++id, {resolve, reject}); worker.postMessage({id, action, data});

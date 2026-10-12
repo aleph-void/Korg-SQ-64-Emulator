@@ -1,4 +1,4 @@
-import {test, expect} from '@playwright/test';
+import {test, expect} from './fixtures.js';
 import {syntheticVsb} from '../fixtures.js';
 
 test.beforeEach(async ({page}) => { await page.goto('/'); });

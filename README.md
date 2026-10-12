@@ -1,6 +1,6 @@
 # SQ-64 emulator and device tools
 
-An independent Aleph Void firmware workbench. The client-only updater, backup/restore tool and WebAssembly emulator live together in **`web/`**. No server, account, upload service, native MIDI registration or vendor firmware is required for the browser emulator.
+An independent Aleph Void firmware workbench. The Vue 3 updater, backup/restore tool and WebAssembly emulator live together in **`web/`**. No server, account, upload service, native MIDI registration or vendor firmware is required for the browser emulator.
 
 This is an **experimental board model**, not a hardware certification. The ARM CPU executes supplied firmware. The browser model connects all 64 pads, 21 other buttons, six encoders, LEDs and the display through modeled peripherals. Version and Update hold GLOBAL or GLOBAL+PATTERN at reset. USB enumeration, firmware installation and the panel paths have been exercised privately with stock 2.03 and custom 2.04. Analog outputs, electrical timing and arbitrary firmware remain outside that evidence. See [coverage and open work](docs/coverage.md).
 

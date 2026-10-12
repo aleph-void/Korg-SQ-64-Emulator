@@ -1,12 +1,14 @@
 import http from 'node:http';
 import {readFile} from 'node:fs/promises';
 import {resolve, extname, sep} from 'node:path';
-const root = resolve(process.env.SITE_ROOT || '.'), port = Number(process.env.PORT || 4173);
+const root = resolve(process.env.SITE_ROOT || 'dist'), port = Number(process.env.PORT || 4173);
 const version = await readFile(resolve(root, '../VERSION'), 'utf8').then(v => v.trim(), () => 'dev');
 const types = {'.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.woff2': 'font/woff2'};
 http.createServer(async (req, res) => {
   try {
-    const path = resolve(root, '.' + decodeURIComponent(new URL(req.url, 'http://localhost').pathname));
+    // Serve the same export under /dist/ as well to exercise repository-path hosting.
+    const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
+    const path = resolve(root, '.' + (pathname.startsWith('/dist/') ? pathname.slice(5) : pathname));
     if (!path.startsWith(root + sep) && path !== root) throw Error('Invalid path');
     const file = req.url.split('?')[0].endsWith('/') ? resolve(path, 'index.html') : path;
     const data = extname(file) === '.html' ? (await readFile(file, 'utf8')).replaceAll('{{VERSION}}', version) : await readFile(file);

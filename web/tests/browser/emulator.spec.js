@@ -1,4 +1,4 @@
-import {test, expect} from '@playwright/test';
+import {test, expect} from './fixtures.js';
 import {syntheticVsb} from '../fixtures.js';
 
 test('independently authored ARM probe backs up and stages an update without Web MIDI', async ({page}) => {

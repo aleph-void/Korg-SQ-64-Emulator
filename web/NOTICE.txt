@@ -4,6 +4,7 @@ No original Korg firmware, decompiled code, fonts, menus, graphics or user data 
 KORG SYSTEM FILE and product identifiers are interoperability fields, not bundled firmware.
 Unicorn and unicorn.js: GPL-2.0; licenses, corresponding source and build recipe in vendor/.
 Inter and JetBrains Mono: SIL Open Font License; notices in assets/.
+Vue: MIT license; the static export includes vendor/vue-LICENSE.txt.
 SQ-64 conformance image checks: ported from the independent spec v0.2.0, commit a71297981a601b5e69e5d44dc44ada897050df3d; MIT license in emulator/conformance/LICENSE.
 Aleph Void name and logo belong to Aleph Void; the software license does not grant trademark rights.
 The example binary is original integration-test code, is not deployable on SQ-64 hardware, and is not a replacement firmware release. Source and build recipe are in examples/.
