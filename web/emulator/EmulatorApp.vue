@@ -276,7 +276,6 @@ onBeforeUnmount(() => {
         >Load firmware<input
           type="file"
           id="image"
-          accept=".bin,.vsb,.VSB,.elf"
           :disabled="fileDisabled"
           @change="loadFile"
       /></label>
@@ -342,7 +341,7 @@ onBeforeUnmount(() => {
     <details id="firmware-update" class="scripts">
       <summary>Send a second firmware image</summary>
       <p>Start the loaded firmware in Update mode, then select a second .VSB and send it to the running updater.</p>
-      <label>Update firmware (.VSB)<input id="update-image" type="file" accept=".vsb,.VSB" :disabled="fileDisabled" @change="selectUpdateFile" /></label>
+      <label>Update firmware (.VSB)<input id="update-image" type="file" :disabled="fileDisabled" @change="selectUpdateFile" /></label>
       <p id="update-file-info" style="overflow-wrap: anywhere">{{ updateLoading ? 'Reading update firmware…' : updateFileInfo }}</p>
       <label><input id="update-older" type="checkbox" v-model="updateOlder" :disabled="fileDisabled" />Allow reinstalling the same version or downgrading</label>
       <div class="toolbar"><div>

@@ -393,7 +393,6 @@ onBeforeUnmount(() => {
               >Select a .VSB firmware file<input
                 id="firmware"
                 type="file"
-                accept=".vsb,.VSB"
                 :disabled="locked"
                 @change="loadFirmware"
             /></label>
