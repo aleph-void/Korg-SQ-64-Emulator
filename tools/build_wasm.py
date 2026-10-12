@@ -38,6 +38,11 @@ def main():
     run('git', 'apply', str(Path(__file__).with_name('unicorn-2.1.3-itstate.patch')), cwd=target)
     driver = wrapper / 'build.py'
     source = driver.read_text().replace('jobs = os.cpu_count() or 1', 'jobs = 4').replace('jobs = multiprocessing.cpu_count()', 'jobs = 4')
+    source = source.replace("'-DCMAKE_BUILD_TYPE=Release',", "'-DCMAKE_BUILD_TYPE=Release', '-DCMAKE_C_FLAGS=-flto',")
+    # The wrapper supplies tci.c; apply our extension after its own patches.
+    observation = str(Path(__file__).with_name('unicorn-tci-observation.patch').resolve())
+    source = source.replace('    patchUnicorn()',
+        f"    patchUnicorn()\n    subprocess.run(['git', 'apply', {observation!r}], cwd=UNICORN_DIR, check=True)")
     driver.write_text(source)
     os.environ.setdefault('EM_CACHE', str(args.work.resolve() / 'emscripten-cache'))
     run('python3', 'build.py', 'arm', cwd=wrapper)
@@ -45,7 +50,7 @@ def main():
     build = importlib.util.module_from_spec(module); module.loader.exec_module(build)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     exports = build.EXPORTED_FUNCTIONS + ['_sq64_bridge_new', '_sq64_bridge_free']
-    run('emcc', '-O3', '-I', str(target / 'include'), str(Path(__file__).with_name('wasm_bridge.c')),
+    run('emcc', '-O3', '-flto', '-I', str(target / 'include'), str(Path(__file__).with_name('wasm_bridge.c')),
         str(target / 'build/libunicorn.a'), '-s', f'EXPORTED_FUNCTIONS={exports}',
         '-s', "EXPORTED_RUNTIME_METHODS=['ccall','getValue','setValue','addFunction','removeFunction','writeArrayToMemory']",
         '-s', 'ALLOW_TABLE_GROWTH=1', '-s', 'ALLOW_MEMORY_GROWTH=1', '-s', 'MODULARIZE=1', '-s', 'EXPORT_ES6=1',

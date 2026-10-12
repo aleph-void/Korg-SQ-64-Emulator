@@ -43,7 +43,7 @@ export class WasmBridge {
       }
     }
     const heap = m.u.HEAPU32;
-    heap[at + 1] = Math.min(128 - b.ticks % 128, timer, event);
+    heap[at + 1] = Math.min(0xffffffff, Math.max(1, b.nextServiceTick - b.ticks), timer, event);
     heap[at + 2] = m.irq.active.length; heap[at + 3] = Number(b.poweredOff);
     heap[at + 4] = priority < ceiling ? priority : 0xffffffff;
   }

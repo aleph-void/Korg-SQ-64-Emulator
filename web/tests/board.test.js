@@ -113,6 +113,41 @@ test('disabled pending IRQs remain latched without repeated priority scans', () 
   irq.enabled |= 1n << 67n; irq.instruction(0x200000); assert.equal(scans, 1);
 });
 
+test('scheduled DMA matches polling while skipping idle boundaries and waking for clock changes', () => {
+  const scheduled = board(), polled = board(), actual = [], expected = [];
+  scheduled.cyclesPerInstruction = polled.cyclesPerInstruction = 3;
+  scheduled.irq = {pend: irq => actual.push([scheduled.ticks, irq])};
+  polled.irq = {pend: irq => expected.push([polled.ticks, irq])};
+  const write = (address, value) => {
+    for (const b of [scheduled, polled]) { b.write(address, 4, value); b.put(address, value); }
+  };
+  for (let i = 0; i < 128; i++) scheduled.advance();
+  polled.ticks = 128; polled.cycles = 384;
+  assert.equal(scheduled.nextServiceTick, Infinity);
+  write(0x40023808, 4 << 13); write(0x40013000, 3 << 3);
+  for (const [base, control, buffer] of [[0x40026458, 1 | 256 | 1024 | 64 | 24, 0x20001000], [0x40026440, 1 | 256 | 1024, 0x20002000]]) {
+    write(base + 4, 128); write(base + 8, 0x4001300c); write(base + 12, buffer); write(base, control);
+  }
+  let polls = 0; const complete = scheduled.completeDma.bind(scheduled);
+  scheduled.completeDma = () => { polls++; complete(); };
+  for (let tick = 129; tick <= 30000; tick++) {
+    scheduled.advance(); polled.ticks++; polled.cycles += polled.cyclesPerInstruction;
+    if (tick % 128 === 0) polled.completeDma();
+    if (tick === 7777) write(0x40013000, 1 << 3);
+    if (tick === 16001) { scheduled.instructionTiming(16); polled.cyclesPerInstruction = 16; }
+    assert.deepEqual(actual, expected, `panel IRQ at ${tick}`);
+    assert.equal(scheduled.get(0x4002645c), polled.get(0x4002645c));
+  }
+  assert.ok(polls < 100, `only ${polls} useful DMA polls`);
+  // A display transfer armed after an idle period wakes the next old boundary.
+  write(0x40026090, 0x40003c0c); write(0x40026094, 0x20003000);
+  write(0x4002608c, 4096); write(0x40026088, 1 | 64 | 1024 | 8192);
+  const due = scheduled.ticks + 128 - scheduled.ticks % 128;
+  while (scheduled.ticks < due - 1) scheduled.advance();
+  assert.equal(scheduled.panel.displayFrames, 0); scheduled.advance();
+  assert.equal(scheduled.panel.displayFrames, 1);
+});
+
 test('deferred timers preserve overflow instructions across counter, divisor and enable changes', () => {
   const b = board(), pending = [], expected = [], timers = [0x40000000, 0x40000400, 0x40001400], irqs = [28,29,55];
   b.irq = {pend: irq => pending.push([b.ticks,irq])};

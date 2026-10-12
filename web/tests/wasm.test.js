@@ -47,6 +47,24 @@ test('native bridge preserves instruction budgets, high MMIO addresses, IRQ mask
 test('USB MIDI packing covers all SysEx tail sizes', () => {
   for (let n = 0; n < 24; n++) { const data = [240, ...Array.from({length: n}, (_, i) => i), 247]; assert.deepEqual(packetBytes(midiPackets(data)).flatMap(x => Array.from(x[1])), data); }
 });
+
+test('the last conditional RAM access leaves no stale IT state at a budget boundary', async () => {
+  // Original probe: R0 = SRAM; R1 = 0; CMP; IT EQ; STRBEQ; ADD; branch.
+  const data = program([3,0x48,0,0x21,0,0x29,8,0xbf,1,0x70,1,0x31,0xf9,0xe7,0,0xbf,0,0,0,0x20]);
+  const image = await loadImage(data);
+  for (const execution of [undefined, 'scalar']) {
+    const m = new Machine(engine, image, {execution});
+    try {
+      m.run(5); assert.equal(m.error, null); assert.equal(m.reg('PC'), 0x200012);
+      m.run(1); assert.equal(m.error, null);
+      assert.equal(m.reg('XPSR') & 0x0600fc00, 0, 'completed IT slot');
+      assert.equal(m.reg('R1'), 1);
+      m.configureDebug({enabled: true, traceLimit: 8}); m.run(8);
+      assert.equal(m.error, null); assert.ok(m.debug.report().trace.length);
+      m.configureDebug({enabled: false}); m.run(129); assert.equal(m.error, null);
+    } finally { m.close(); }
+  }
+});
 test('SPI protects writes and implements NOR bit clearing', () => {
   const flash = new SpiFlash(); const tx = bytes => { flash.select(true); try { return bytes.map(b => flash.exchange(b)); } finally { flash.select(false); } };
   assert.throws(() => tx([2, 0, 0, 0, 42]), /enable/); tx([6]); tx([2, 0, 0, 0, 42]); tx([6]); tx([2, 0, 0, 0, 255]); assert.equal(flash.data[0], 42);

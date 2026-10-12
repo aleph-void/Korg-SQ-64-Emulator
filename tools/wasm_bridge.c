@@ -48,6 +48,15 @@ static void code(uc_engine *uc, uint64_t address, uint32_t size, void *user) {
     if (observe) s->event(0, (uint32_t)address, 0, 0);
 }
 
+/* Pure filter: uninterested RAM accesses need no CPU-state reconstruction. */
+static bool memory_needed(uc_mem_type type, uint64_t address, int size, void *user) {
+    uint32_t a = (uint32_t)address;
+    return (size > 1 && (a & ((size < 4 ? size : 4) - 1)))
+        || a >= 0x40000000
+        || (type == UC_MEM_WRITE && ((a >= 0x200000 && a < 0x210000)
+            || (a >= 0x08000000 && a < 0x08010000)));
+}
+
 static void memory(uc_engine *uc, uc_mem_type type, uint64_t address,
                    int size, int64_t value, void *user) {
     sq64_bridge *s = user;
@@ -72,6 +81,8 @@ sq64_bridge *sq64_bridge_new(uc_engine *engine, host_event event) {
         if (s->write_hook) uc_hook_del(engine, s->write_hook);
         free(s); return NULL;
     }
+    uc_hook_set_mem_filter(engine, s->read_hook, memory_needed);
+    uc_hook_set_mem_filter(engine, s->write_hook, memory_needed);
     return s;
 }
 

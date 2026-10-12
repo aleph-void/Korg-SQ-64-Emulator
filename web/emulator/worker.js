@@ -29,7 +29,7 @@ async function action(name, data) {
   if (name === 'load') {
     const bytes = new Uint8Array(data.bytes).slice();
     const image = await loadImage(bytes); engine ||= await createUnicorn();
-    options = {transport: data.transport || 'usb', mapping: data.mapping || {}};
+    options = {transport: data.transport || 'usb', mapping: data.mapping || {}, cyclesPerInstruction: data.transport === 'din' ? 16 : 3};
     const replacement = new Machine(engine, image, {...options, onMidi}); machine?.close(); machine = replacement;
     loadedBytes = bytes; conformance = null;
     inputs = new InteractiveInputs(machine);
@@ -76,7 +76,7 @@ async function action(name, data) {
     const storedBytes = new Uint8Array(flash.length + spi.length); storedBytes.set(flash); storedBytes.set(spi, flash.length);
     const image = {...machine.image, loadedImageSha256: machine.image.loadedImageSha256 || machine.image.sha256, segments: [{address: 0x200000, data: flash}, ...machine.image.segments.filter(s => s.address !== 0x200000)], spi, stack: new DataView(flash.buffer).getUint32(0, true), reset: new DataView(flash.buffer).getUint32(4, true), sha256: await sha256(storedBytes)};
     const debug = machine.debug.config();
-    machine.close(); machine = new Machine(engine, image, {...options, onMidi, debug}); mode = data.mode;
+    machine.close(); machine = new Machine(engine, image, {...options, cyclesPerInstruction: data.mode === 'normal' ? options.cyclesPerInstruction : 16, onMidi, debug}); mode = data.mode;
     inputs = new InteractiveInputs(machine);
     execution = new ExecutionSlice();
     if (mode !== 'normal') machine.event({type: 'button', control: 'global', down: true});
@@ -104,6 +104,10 @@ function pump() {
   if (terminated) return;
   try {
     if (running && machine) {
+      // Startup redraws must finish between timer ticks or the firmware loses
+      // animation steps. Once USB is ready, restore the interactive clock so
+      // button debounce and encoder spacing retain their normal wall time.
+      if (machine.board.cyclesPerInstruction === 3 && machine.board.usb.phase === 'configured') machine.board.instructionTiming(16);
       const start = performance.now();
       if (start - lastState >= FRAME_INTERVAL) notify();
       // Yield at the next display deadline, and adapt sub-batches to measured

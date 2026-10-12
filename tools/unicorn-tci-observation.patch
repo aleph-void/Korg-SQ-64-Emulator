@@ -1,0 +1,184 @@
+--- a/include/unicorn/unicorn.h
++++ b/include/unicorn/unicorn.h
+@@ -1100,6 +1100,13 @@
+  @return UC_ERR_OK on success, or other value on failure (refer to uc_err enum
+    for detailed error).
+ */
++/* Optional pure predicate evaluated before materializing CPU state for a
++ * mapped read/write hook. It must not read or change the emulated machine. */
++typedef bool (*uc_cb_mem_filter_t)(uc_mem_type type, uint64_t address,
++                                   int size, void *user_data);
++UNICORN_EXPORT
++uc_err uc_hook_set_mem_filter(uc_engine *uc, uc_hook hh, uc_cb_mem_filter_t filter);
++
+ UNICORN_EXPORT
+ uc_err uc_hook_del(uc_engine *uc, uc_hook hh);
+ 
+--- a/include/uc_priv.h
++++ b/include/uc_priv.h
+@@ -158,6 +158,7 @@
+ typedef uc_err (*uc_set_tlb_t)(struct uc_struct *uc, int mode);
+ 
+ struct hook {
++    uc_cb_mem_filter_t mem_filter;
+     int type;       // UC_HOOK_*
+     int insn;       // instruction for HOOK_INSN
+     int refs;       // reference count to free hook stored in multiple lists
+--- a/uc.c
++++ b/uc.c
+@@ -3068,3 +3068,17 @@
+             (double)(end - tracer->starts[loc]) / (double)(1000));
+ }
+ #endif
++
++uc_err uc_hook_set_mem_filter(uc_engine *uc, uc_hook hh, uc_cb_mem_filter_t filter)
++{
++    for (int index = UC_HOOK_MEM_READ_IDX; index <= UC_HOOK_MEM_WRITE_IDX; index++) {
++        for (struct list_item *cur = uc->hook[index].head; cur; cur = cur->next) {
++            struct hook *hook = cur->data;
++            if ((uc_hook)hook == hh && !hook->to_delete) {
++                hook->mem_filter = filter;
++                return UC_ERR_OK;
++            }
++        }
++    }
++    return UC_ERR_ARG;
++}
+--- a/qemu/accel/tcg/cputlb.c
++++ b/qemu/accel/tcg/cputlb.c
+@@ -1657,6 +1657,8 @@
+                 continue;
+             if (!HOOK_BOUND_CHECK(hook, paddr))
+                 continue;
++            if (hook->mem_filter && !hook->mem_filter(UC_MEM_READ, paddr, size, hook->user_data))
++                continue;
+             if (!synced && !uc->skip_sync_pc_on_exit && retaddr) {
+                 cpu_restore_state(uc->cpu, retaddr, false);
+                 synced = true;
+@@ -2200,6 +2202,8 @@
+             if (hook->to_delete)
+                 continue;
+             if (!HOOK_BOUND_CHECK(hook, paddr))
++                continue;
++            if (hook->mem_filter && !hook->mem_filter(UC_MEM_WRITE, paddr, size, hook->user_data))
+                 continue;
+             if (!synced && !uc->skip_sync_pc_on_exit && retaddr) {
+                 cpu_restore_state(uc->cpu, retaddr, false);
+--- a/qemu/target/arm/helper.h
++++ b/qemu/target/arm/helper.h
+@@ -1,3 +1,4 @@
++DEF_HELPER_4(uc_thumb_hook, void, env, i32, i32, i32)
+ DEF_HELPER_4(uc_tracecode, void, i32, i32, ptr, i64)
+ DEF_HELPER_6(uc_traceopcode, void, ptr, i64, i64, i32, ptr, i64)
+ 
+--- a/qemu/target/arm/op_helper.c
++++ b/qemu/target/arm/op_helper.c
+@@ -970,3 +970,17 @@
+     JIT_CALLBACK_GUARD_VAR(ret, ((uc_cb_insn_sys_t)(hook->callback))(uc, uc_rt, &cp_reg, hook->user_data));
+     return ret;
+ }
++
++/* Publish the Thumb hook boundary and check exits in one helper, avoiding
++ * separate interpreter calls and state stores for every instruction. */
++void HELPER(uc_thumb_hook)(CPUARMState *env, uint32_t pc,
++                           uint32_t itstate, uint32_t size)
++{
++    uc_engine *uc = env_cpu(env)->uc;
++    env->regs[15] = pc;
++    env->condexec_bits = itstate;
++    HELPER(uc_tracecode)(size, UC_HOOK_CODE_IDX, uc, pc);
++    if (cpu_loop_exit_requested(uc->cpu)) uc->skip_sync_pc_on_exit = true;
++    HELPER(check_exit_request)(uc, 0);
++    env->condexec_bits = 0;
++}
+--- a/qemu/target/arm/translate.c
++++ b/qemu/target/arm/translate.c
+@@ -11579,15 +11579,14 @@
+     uc->no_exit_request = false;
+     insn_size = is_16bit ? 2 : 4;
+     if (HOOK_EXISTS_BOUNDED(uc, UC_HOOK_CODE, dc->base.pc_next - insn_size)) {
+-        gen_set_pc_im(dc, dc->base.pc_next - insn_size);
+-        gen_set_condexec(dc);
+-        gen_uc_tracecode(tcg_ctx, insn_size, UC_HOOK_CODE_IDX, uc, dc->base.pc_next - insn_size);
+-        check_exit_request(tcg_ctx);
+-        /* Restore the translator invariant on normal continuation. A hook
+-         * exit branches out above with the published pre-instruction state. */
+-        TCGv_i32 it_zero = tcg_temp_new_i32(tcg_ctx);
+-        tcg_gen_movi_i32(tcg_ctx, it_zero, 0);
+-        store_cpu_field(tcg_ctx, it_zero, condexec_bits);
++        TCGv_i32 pc = tcg_const_i32(tcg_ctx, dc->base.pc_next - insn_size);
++        TCGv_i32 state = tcg_const_i32(tcg_ctx,
++            dc->condexec_mask ? (dc->condexec_cond << 4) | (dc->condexec_mask >> 1) : 0);
++        TCGv_i32 size = tcg_const_i32(tcg_ctx, insn_size);
++        gen_helper_uc_thumb_hook(tcg_ctx, tcg_ctx->cpu_env, pc, state, size);
++        tcg_temp_free_i32(tcg_ctx, pc);
++        tcg_temp_free_i32(tcg_ctx, state);
++        tcg_temp_free_i32(tcg_ctx, size);
+     }
+ 
+     if (dc->condexec_mask && !thumb_insn_is_unconditional(dc, insn)) {
+--- a/qemu/include/tcg/tcg-opc.h
++++ b/qemu/include/tcg/tcg-opc.h
+@@ -32,6 +32,7 @@
+ 
+ /* variable number of parameters */
+ DEF(call, 0, 0, 3, TCG_OPF_CALL_CLOBBER | TCG_OPF_NOT_PRESENT)
++DEF(uc_thumb_hook, 0, 0, 3, TCG_OPF_NOT_PRESENT)
+ 
+ DEF(br, 0, 0, 1, TCG_OPF_BB_END)
+ 
+--- a/qemu/tcg/tcg.c
++++ b/qemu/tcg/tcg.c
+@@ -3587,6 +3587,35 @@
+     func_addr = (tcg_insn_unit *)(intptr_t)op->args[nb_oargs + nb_iargs];
+     flags = op->args[nb_oargs + nb_iargs + 1];
+ 
++#if defined(CONFIG_TCG_INTERPRETER) && defined(TARGET_ARM) && TCG_TARGET_REG_BITS == 32
++    /* The Thumb observation helper has a fixed environment and three
++     * translation-time constants. Emit a compact TCI operation rather than
++     * marshaling eight ABI words through the generic WASM helper adapter. */
++    if (func_addr == (tcg_insn_unit *)(uintptr_t)adapter_helper_uc_thumb_hook
++        && nb_oargs == 0 && nb_iargs == 8
++        && arg_temp(op->args[0])->fixed_reg
++        && arg_temp(op->args[2])->val_type == TEMP_VAL_CONST
++        && arg_temp(op->args[4])->val_type == TEMP_VAL_CONST
++        && arg_temp(op->args[6])->val_type == TEMP_VAL_CONST) {
++        uint32_t pc = arg_temp(op->args[2])->val;
++        uint32_t state = arg_temp(op->args[4])->val;
++        uint32_t size = arg_temp(op->args[6])->val;
++        for (i = 0; i < nb_iargs; i++) {
++            if (IS_DEAD_ARG(i)) temp_dead(s, arg_temp(op->args[i]));
++        }
++        for (i = 0; i < TCG_TARGET_NB_REGS; i++) {
++            if (tcg_regset_test_reg(s->tcg_target_call_clobber_regs, i))
++                tcg_reg_free(s, i, s->reserved_regs);
++        }
++        save_globals(s, s->reserved_regs);
++        uint8_t *start = s->code_ptr;
++        tcg_out_op_t(s, INDEX_op_uc_thumb_hook);
++        tcg_out32(s, pc); tcg_out32(s, state); tcg_out32(s, size);
++        start[1] = s->code_ptr - start;
++        return;
++    }
++#endif
++
+     nb_regs = ARRAY_SIZE(tcg_target_call_iarg_regs);
+ #if TCG_TARGET_REG_BITS != 64
+ #ifdef _MSC_VER
+--- a/qemu/tcg/tci.c
++++ b/qemu/tcg/tci.c
+@@ -519,6 +519,14 @@
+         tb_ptr += 2;
+ 
+         switch (opc) {
++#if defined(TARGET_ARM)
++        case INDEX_op_uc_thumb_hook:
++            tmp32 = tci_read_i32(&tb_ptr);
++            t0 = tci_read_i32(&tb_ptr);
++            t1 = tci_read_i32(&tb_ptr);
++            HELPER(uc_thumb_hook)(env, tmp32, t0, t1);
++            break;
++#endif
+         case INDEX_op_call:
+             t0 = tci_read_ri(regs, &tb_ptr);
+ #if TCG_TARGET_REG_BITS == 32

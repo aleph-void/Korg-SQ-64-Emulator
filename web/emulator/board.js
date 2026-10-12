@@ -13,6 +13,7 @@ export class Board {
     this.flashRx = []; this.panelRx = []; this.scanPosition = 0; this.uartRx = new Map([[0x40004400, []], [0x40004800, []]]);
     this.powerButton = false; this.poweredOff = false; this.syncConnected = syncConnected;
     this.timerCycle = 0; this.nextTimerCycle = Infinity;
+    this.nextServiceTick = 128;
     this.flashKey = 0; this.flashControl = 0x80000000; this.adc = 0xc000; this.lastPanelDma = 0; this.trace = []; this.midiOut = [];
     this.onMidi = onMidi; this.transport = transport; this.parsers = new Map();
     this.approximations = new Set(['instruction-time-clock', 'panel-electrical-timing', 'led-colorimetry', 'display-controller-commands', 'register-only-config-blocks', 'instantaneous-flash-completion', 'usb-fs-transaction-time']);
@@ -25,7 +26,33 @@ export class Board {
   advance(instructions = 1) {
     this.ticks += instructions; this.cycles += this.cyclesPerInstruction * instructions;
     if (this.cycles >= this.nextTimerCycle) this.syncTimers();
-    if (this.ticks % 128 === 0) { this.completeDma(); this.usb.service(); }
+    if (this.ticks >= this.nextServiceTick) {
+      this.completeDma(); this.usb.service(); this.scheduleService();
+    }
+  }
+  wakeService() { this.nextServiceTick = Math.min(this.nextServiceTick, this.ticks + 128 - this.ticks % 128); }
+  instructionTiming(cycles) {
+    if (!Number.isInteger(cycles) || cycles < 1 || cycles > 64) throw Error('Invalid virtual instruction timing');
+    this.syncTimers(); this.cyclesPerInstruction = cycles; this.wakeService();
+  }
+  scheduleService() {
+    // Keep the original 128-instruction completion boundaries, but omit polls
+    // that cannot complete a transfer. Register writes wake the next boundary.
+    let delay = Infinity, tx = false, rx = false;
+    for (let stream = 0; stream < 8; stream++) {
+      const base = 0x40026010 + stream * 24, control = this.get(base);
+      if (!(control & 1)) continue;
+      if (this.get(base + 8) === 0x4000380c) {
+        tx ||= (control >>> 6 & 3) === 1; rx ||= (control >>> 6 & 3) === 0;
+      }
+      if (base === 0x40026088 && this.get(base + 8) === 0x40003c0c) delay = 1;
+    }
+    if (tx && rx || !(this.usb.reg(0x804) & 2)) delay = 1;
+    if (this.get(0x40026458) & this.get(0x40026440) & 1
+        && this.get(0x40026460) === 0x4001300c && this.get(0x40026448) === 0x4001300c) {
+      delay = Math.min(delay, Math.max(1, Math.ceil((this.lastPanelDma + this.panelTransferCycles() - this.cycles) / this.cyclesPerInstruction)));
+    }
+    this.nextServiceTick = Math.ceil((this.ticks + delay) / 128) * 128;
   }
   syncTimers() {
     // Advance only at an overflow or an observed timer-register access. IRQs
@@ -71,6 +98,10 @@ export class Board {
     return KNOWN_WINDOWS.some(([b, n]) => a >= b && a < b + n);
   }
   write(a, n, v) {
+    if (a >= 0x40026000 && a < 0x40026800
+        || a < 0x4002380c && a + n > 0x40023808
+        || a < 0x40013004 && a + n > 0x40013000
+        || a >= 0x50000000 && a < 0x50006000) this.wakeService();
     this.critical?.memory(a, n, v); this.critical?.dmaWrite(a, n, v, address => this.get(address));
     if (this.timerAddress(a) || a === 0x40023808 || a === 0x4002388c) { this.syncTimers(); this.nextTimerCycle = this.cycles + this.cyclesPerInstruction; }
     if (TIMERS.has(a)) { if (v & 1) this.timers.add(a); else this.timers.delete(a); }
