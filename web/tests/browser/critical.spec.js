@@ -30,3 +30,24 @@ for (const action of ['run','step','debug-step','reset']) test(`critical pass te
   await panel.locator('#image').setInputFiles(firmware(false));await expect(panel.locator('#safety-stop')).toHaveCount(0);await expect(panel.locator('#run')).toBeEnabled();
   await panel.locator('#step').click();expect((await page.evaluate(()=>window.sq64Emulator.request('state'))).report.critical.terminated).toBe(false);
 });
+
+test('installation context requires Update mode and is discarded by reset', async ({page}) => {
+  await page.goto('/'); await page.locator('#browser-workbench summary').click();
+  const panel = page.frameLocator('#emulator-frame');
+  await panel.locator('#image').setInputFiles(firmware(false));
+  await expect(panel.locator('#run')).toBeEnabled();
+  const candidate = {bytes: Array.from(syntheticVsb()), caps: {protocol: 1, packetSize: 1024, flags: 2}};
+  const rejected = await page.evaluate(async data => {
+    try { await window.sq64Emulator.request('prepare-update', data); return ''; }
+    catch (error) { return error.message; }
+  }, candidate);
+  expect(rejected).toContain('Start Update mode');
+  await panel.locator('#update').click();
+  let state = await page.evaluate(data => window.sq64Emulator.request('prepare-update', data), candidate);
+  expect(state.report.critical.installation.phase).toBe('prepared');
+  expect(state.report.critical.installation.packetsSubmitted).toBe(0);
+  await panel.locator('#reset').click();
+  state = await page.evaluate(() => window.sq64Emulator.request('state'));
+  expect(state.report.critical.installation).toBeUndefined();
+  expect(state.report.critical.terminated).toBe(false);
+});

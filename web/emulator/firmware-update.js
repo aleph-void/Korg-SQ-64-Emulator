@@ -1,6 +1,11 @@
 import { parseVsb } from '../src/protocol.js';
 import { MidiSession, sleep, updateFirmware } from '../src/session.js';
 
+export const emulatorUpdateContext = device => ({
+  prepare: (pkg, caps) => device.request('prepare-update', { bytes: pkg.data, caps }),
+  cancel: () => device.request('cancel-update'),
+});
+
 // Send through the running firmware's MIDI updater, never replace the machine
 // or copy the candidate into flash from the host.
 export async function submitFirmware(device, bytes, { allowOlder = false, signal, scripted = false,
@@ -36,7 +41,7 @@ export async function submitFirmware(device, bytes, { allowOlder = false, signal
       snapshot = await device.request('state');
       check(snapshot);
     }
-    session = new MidiSession(device.input, device.output, { timeout: responseTimeout });
+    session = new MidiSession(device.input, device.output, { timeout: responseTimeout, updateContext: emulatorUpdateContext(device) });
     return await updateFirmware(session, pkg, { allowOlder, signal, onProgress, delay });
   } finally {
     session?.close();

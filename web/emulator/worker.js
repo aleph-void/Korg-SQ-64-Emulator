@@ -3,7 +3,7 @@ import {loadImage} from './image.js';
 import {Machine} from './core.js';
 import {InteractiveInputs} from './input.js';
 import {ExecutionSlice, FRAME_INTERVAL} from './pacing.js';
-import {sha256} from '../src/protocol.js';
+import {parseVsb, sha256} from '../src/protocol.js';
 import {validateImage} from './conformance/validate.js';
 import {criticalStop} from './conformance/safety.js';
 let engine, machine, inputs, running = false, mode = 'normal', options = {transport: 'usb'}, lastState = 0, statePending = false;
@@ -37,7 +37,13 @@ async function action(name, data) {
     running = false; mode = 'normal'; return state();
   }
   if (!machine) throw Error('Load firmware into the emulator first');
-  if (name === 'run') running = true;
+  if (name === 'prepare-update') {
+    if (mode !== 'update' || machine.board.poweredOff || machine.debug.enabled) throw Error('Start Update mode with debugging disabled before installing firmware');
+    const pkg = parseVsb(new Uint8Array(data.bytes));
+    machine.prepareUpdate(pkg, data.caps, await sha256(pkg.data));
+  }
+  else if (name === 'cancel-update') machine.cancelUpdate();
+  else if (name === 'run') running = true;
   else if (name === 'poweroff') { machine.event({type: 'power', down: true}); running = true; }
   else if (name === 'pause') running = false;
   else if (name === 'validate') {

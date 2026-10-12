@@ -26,7 +26,7 @@ test('submits all 224 packets through MIDI without loading, resetting or directl
   const { device, peer, calls, locks, options, progress } = fixture({ running: false });
   const result = await submitFirmware(device, syntheticVsb(), options);
   assert.deepEqual(result, { packets: 224, deviceCompletionVerified: false });
-  assert.deepEqual(calls, ['state', 'run']);
+  assert.deepEqual(calls, ['state', 'run', 'prepare-update']);
   assert.deepEqual(locks, [true, false]);
   assert.deepEqual(peer.frames.slice(0, 3).map(data => data[6]), [0, 2, 4]);
   assert.equal(peer.next, 224);

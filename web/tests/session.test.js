@@ -56,3 +56,24 @@ test('cancellation during the post-update delay exits immediately without report
   assert.equal(session.closed, true);
   assert.equal(progress.some(row => row.phase === 'await-device-completion'), false);
 });
+
+test('emulator installation context is prepared after preflight, before begin, and cancelled on failure', async () => {
+  for (const fail of [false, true]) {
+    const session = new DemoSession(), events = [], exchange = session.exchange.bind(session);
+    session.updateContext = {
+      async prepare(pkg, caps) {
+        events.push('prepare'); assert.equal(pkg.payload.length, 0x38000); assert.equal(caps.packetSize, 1024);
+        assert.deepEqual(session.frames.map(row => row[6]), [0, 2]);
+      },
+      async cancel() { events.push('cancel'); },
+    };
+    session.exchange = data => fail && data[6] === 4 ? frame(5, [9]) : exchange(data);
+    const result = updateFirmware(session, parseVsb(syntheticVsb()), { delay: async () => {} });
+    if (fail) await assert.rejects(result, /Flash write/); else await result;
+    assert.deepEqual(events, fail ? ['prepare', 'cancel'] : ['prepare']);
+  }
+  const session = new DemoSession();
+  session.updateContext = { prepare() { assert.fail('Version rejection must not authorize installation'); } };
+  const candidate = syntheticVsb(); candidate[0x2b] = 3;
+  await assert.rejects(updateFirmware(session, parseVsb(candidate)), /Same or older/);
+});

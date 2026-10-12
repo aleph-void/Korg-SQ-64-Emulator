@@ -222,6 +222,7 @@ function stateChanged(event) {
 }
 function fault(event) {
   error.value = event.detail;
+  if (device.state?.report?.critical?.installation) updateMessage.value = `Update stopped: ${event.detail}`;
 }
 device.addEventListener('state', stateChanged);
 device.addEventListener('fault', fault);
@@ -338,7 +339,8 @@ onBeforeUnmount(() => {
       <progress aria-label="Firmware transfer progress" max="100" :value="updateProgress"></progress>
       <p id="update-status" role="status">{{ updateMessage || 'Ready after selecting an update file and starting Update mode' }}</p>
       <p class="hint">Files stay in memory. Scripts use this selection for the firmware-update action.
-        Packet acknowledgement does not verify installation. Existing flash-safety checks can stop firmware when it attempts to change protected storage.</p>
+        Packet acknowledgement does not verify installation. The selected image's installation writes are permitted;
+        unexpected protected writes still stop execution.</p>
     </details>
     <ValidationPanel :state="controlState" :request="api" />
     <InstrumentPanel

@@ -33,7 +33,7 @@ export class SpiFlash {
     } else if ([3, 11].includes(this.command)) {
       if (this.command !== 11 || this.position > 4) { result = this.data[this.address]; this.address = (this.address + 1) % this.data.length; }
     } else if (this.command === 2) {
-      this.critical?.spi('program', this.address, 1);
+      this.critical?.spi('program', this.address, 1, value);
       if (!this.enabled) throw Error('Programming without write enable');
       this.data[this.address] &= value; this.writes++; this.address = this.page | ((this.address + 1) & 255);
     } else if (this.command === 5) result = this.enabled ? 2 : 0;

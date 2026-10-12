@@ -17,6 +17,7 @@ test('independently authored ARM probe backs up and stages an update without Web
   await page.getByRole('button', {name: 'Restore', exact: true}).click();
   await page.locator('#backup-file').setInputFiles(file); await page.locator('#restore-ready').check(); await page.locator('#restore-start').click();
   await expect(page.locator('#status')).toHaveText('Restore acknowledged by device');
+  await panel.locator('#update').click();
   await page.getByRole('button', {name: 'Update firmware'}).click();
   const data = syntheticVsb();
   await page.locator('#firmware').setInputFiles({name: 'synthetic-never-flash.vsb', mimeType: 'application/octet-stream', buffer: Buffer.from(data)});

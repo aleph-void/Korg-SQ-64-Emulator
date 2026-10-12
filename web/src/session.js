@@ -7,8 +7,9 @@ export const sleep = (ms, signal) => new Promise((resolve, reject) => {
   else signal?.addEventListener('abort', abort, {once: true});
 });
 export class MidiSession {
-  constructor(input, output, {timeout = 5000} = {}) {
+  constructor(input, output, {timeout = 5000, updateContext} = {}) {
     this.input = input; this.output = output; this.timeout = timeout; this.pending = null; this.closed = false;
+    this.updateContext = updateContext;
     this.framer = new Framer();
     this.receive = event => {
       try {
@@ -59,11 +60,15 @@ export async function updateFirmware(session, pkg, {allowOlder = false, onProgre
   signal?.throwIfAborted();
   const abort = () => session.close(signal.reason);
   signal?.addEventListener('abort', abort, {once: true});
-  let began = false;
+  let began = false, prepared = false;
   try {
     const {caps, version} = await inspectUpdater(session);
     signal?.throwIfAborted();
     const plan = transferPlan(pkg, caps, version, allowOlder);
+    if (session.updateContext) {
+      await session.updateContext.prepare(pkg, caps);
+      prepared = true;
+    }
     const exchange = async message => {
       signal?.throwIfAborted();
       const reply = await session.exchange(message, {progress: data => {
@@ -87,6 +92,7 @@ export async function updateFirmware(session, pkg, {allowOlder = false, onProgre
     return {packets: plan.count, deviceCompletionVerified: false};
   } catch (error) {
     if (began) session.close(error);
+    if (prepared) try { await session.updateContext.cancel(); } catch { /* A terminated worker retains the original failure. */ }
     signal?.throwIfAborted();
     throw error;
   } finally {

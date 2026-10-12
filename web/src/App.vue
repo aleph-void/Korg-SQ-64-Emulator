@@ -5,6 +5,7 @@ import { MidiSession, updateFirmware } from './session.js';
 import { createBackup, validateBackup, restoreBackup } from './backup.js';
 import { DemoSession } from './demo.js';
 import { BrowserEmulator } from '../emulator/client.js';
+import { emulatorUpdateContext } from '../emulator/firmware-update.js';
 import { save } from './download.js';
 
 const version = __APP_VERSION__;
@@ -173,7 +174,7 @@ async function connectEmulator() {
   }
   closeSession();
   emulatorSelected = true;
-  selectSession(new MidiSession(emulator.input, emulator.output, { timeout: 30000 }));
+  selectSession(new MidiSession(emulator.input, emulator.output, { timeout: 30000, updateContext: emulatorUpdateContext(emulator) }));
   connectionState.value = 'Browser emulator connected';
   modeNote.value = 'ARM firmware runs in this browser. The updater is connected only to this emulator.';
   status.value = 'Emulator connected. Run firmware in normal mode for backups or update mode for installation.';

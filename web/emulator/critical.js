@@ -9,15 +9,19 @@ export class CriticalMonitor {
   }
   memory(a, n, v, source = 'cpu') {
     if (this.hit) throw new CriticalHazard(contract.warning);
-    if (overlaps(a, n, 0x200000, 0x100000) || overlaps(a, n, 0x8000000, 0x200000)) this.trip('CRITICAL-001', 'internal-flash-write', a, n, source);
+    if (overlaps(a, n, 0x200000, 0x100000) || overlaps(a, n, 0x8000000, 0x200000)) {
+      if (!this.installation?.internal(a, n, v, source)) this.trip('CRITICAL-001', 'internal-flash-write', a, n, source);
+    }
     if (overlaps(a, n, 0x1ff00000, 0x100000) || overlaps(a, n, 0x40023c08, 4) || overlaps(a, n, 0x40023c14, 12)) this.trip('CRITICAL-002', 'system-or-option-write', a, n, source);
     if (overlaps(a, n, 0x40023c10, 4)) {
       const bits = a <= 0x40023c10 ? v >>> ((0x40023c10 - a) * 8) : v * 2 ** ((a - 0x40023c10) * 8);
-      if (v === undefined || bits & 6) this.trip('CRITICAL-001', 'internal-flash-erase-armed', a, n, source);
+      if ((v === undefined || bits & 6) && !this.installation?.erase(a, n, v, source)) this.trip('CRITICAL-001', 'internal-flash-erase-armed', a, n, source);
     }
   }
-  spi(operation, address, length) {
-    if (address < 0x30000 && address + length > 0) this.trip('CRITICAL-004', operation, address, length, 'spi-flash');
+  spi(operation, address, length, value) {
+    if (this.hit) throw new CriticalHazard(contract.warning);
+    if (address < 0x30000 && address + length > 0 && !this.installation?.spiWrite(operation, address, length, value))
+      this.trip('CRITICAL-004', operation, address, length, 'spi-flash');
   }
   command(value) {
     if (![0, 2, 3, 4, 5, 6, 11, 32, 159, 216].includes(value)) this.trip('CRITICAL-003', `spi-command-0x${value.toString(16)}`, null, null, 'spi-flash');
@@ -40,5 +44,5 @@ export class CriticalMonitor {
     if (!overlaps(a, n, 0x40026000, 0x800)) return;
     this.dma(address => { let value = get(address); for (let i = 0; i < 4; i++) if (address + i >= a && address + i < a + n) value = (value & ~(255 << (8 * i))) | ((v >>> (8 * (address + i - a)) & 255) << (8 * i)); return value >>> 0; });
   }
-  report() { return {format: 'sq64-critical-results', version: 1, specVersion: contract.specVersion, terminateOnCritical: true, terminated: !!this.hit, imageSha256: this.imageSha256, warning: this.hit ? contract.warning : null, claim: contract.claim, results: contract.checks.map(c => this.hit?.id === c.id ? {...this.hit} : {...c, status: 'not-run'})}; }
+  report() { return {format: 'sq64-critical-results', version: 1, specVersion: contract.specVersion, terminateOnCritical: true, terminated: !!this.hit, imageSha256: this.imageSha256, warning: this.hit ? contract.warning : null, claim: contract.claim, ...(this.installation ? {installation: this.installation.report()} : {}), results: contract.checks.map(c => this.hit?.id === c.id ? {...this.hit} : {...c, status: 'not-run'})}; }
 }

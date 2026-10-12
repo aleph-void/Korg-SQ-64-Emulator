@@ -3,6 +3,7 @@ import {Board} from './board.js';
 import {Interrupts} from './interrupts.js';
 import {WasmBridge} from './bridge.js';
 import {Debugger} from './debug.js';
+import {FirmwareInstallation} from './installation.js';
 export class Memory {
   constructor(module, engine) { this.u = module; this.e = engine; this.handle = module.getValue(engine.handle_ptr, '*'); this.regions = []; this.pages = new Map(); }
   map(base, size) {
@@ -97,8 +98,26 @@ export class Machine {
   }
   event(event) {
     if (event.type === 'power' && typeof event.down === 'boolean') { this.board.powerButton = event.down; this.board.panel.events.push({...event, tick: this.board.ticks}); }
-    else if (event.type === 'midi') { if (!Array.isArray(event.data) || !event.data.every(b => Number.isInteger(b) && b >= 0 && b <= 255)) throw Error('Invalid MIDI bytes'); this.board.injectMidi(event.data, event.port); }
+    else if (event.type === 'midi') {
+      if (!Array.isArray(event.data) || !event.data.every(b => Number.isInteger(b) && b >= 0 && b <= 255)) throw Error('Invalid MIDI bytes');
+      this.board.injectMidi(event.data, event.port);
+      this.critical.installation?.receive(event.data);
+      this.updateFlashPermissions();
+    }
     else this.board.panel.event(event, this.board.ticks);
+  }
+  prepareUpdate(pkg, caps, imageSha256) {
+    if (this.error || this.critical.hit) throw Error('Cannot update stopped firmware');
+    if (this.critical.installation?.phase === 'installing') throw Error('Restart the emulator before submitting another installation');
+    this.critical.installation = new FirmwareInstallation(pkg, caps, imageSha256);
+    this.updateFlashPermissions();
+  }
+  cancelUpdate() { this.critical.installation?.cancel(); this.updateFlashPermissions(); }
+  updateFlashPermissions() {
+    const writable = this.critical.installation?.phase === 'installing';
+    if (writable === this.installationWritable) return;
+    this.installationWritable = writable;
+    this.engine.mem_protect(0x8000000, 65536, this.u.PROT_READ | this.u.PROT_EXEC | (writable ? this.u.PROT_WRITE : 0));
   }
   replay(events) {
     if (!Array.isArray(events) || events.length > 100000) throw Error('Invalid replay'); let last = this.board.ticks;
@@ -117,6 +136,9 @@ export class Machine {
     if (this.critical.hit && !this.error) this.fail(this.critical.report().warning);
     if (this.debug.enabled) this.debug.beginRun();
     if (!this.error && !this.board.poweredOff) try { this.bridge?.prepare(count); this.engine.emu_start(this.reg('PC') | 1, 0xffffffff, 0, this.bridge ? 0 : count); } catch (e) { this.fail(e); } finally { try { this.bridge?.flush(); } catch (e) { this.fail(e); } }
+    // Unicorn's write hook can stop execution after the physical-alias store.
+    // Restore it from the guarded execution alias if a write was rejected.
+    if (this.error && this.installationWritable) this.mem.write(0x8000000, this.mem.read(0x200000, 65536));
     return this.report();
   }
   report() { return {format: 'sq64-emulator-report', version: 1, engine: 'unicorn-wasm-2.1.4-tci-itstate', imageSha256: this.image.sha256, critical: this.critical.report(), status: this.critical.hit ? 'terminated' : this.error ? 'fault' : this.debug.stoppedAt !== null ? 'breakpoint' : 'paused', error: this.error, pc: this.reg('PC'), sp: this.reg('SP'), debug: this.debug.report(), board: this.board.report(), interrupts: this.irq.report(), hardwareConformance: 'not-established'}; }
