@@ -66,3 +66,52 @@ test('panel paints the latest burst once and reuses an unchanged display', async
   });
   expect(result).toEqual({first: 1, total: 1, level: '100'});
 });
+
+test('pad brightness transitions soften running PWM changes but paused/debug snapshots and button presses are immediate', async ({page}) => {
+  await page.goto('/'); await page.locator('#browser-workbench summary').click();
+  const panel = page.frameLocator('#emulator-frame');
+  await panel.locator('#load-probe').click(); await expect(panel.locator('#status')).toContainText('Running');
+  await page.evaluate(async () => {
+    const device = window.sq64Emulator;
+    window.ledState = await device.request('pause'); device.worker.terminate();
+  });
+  const frame = page.frames().find(f => f.url().includes('/emulator/'));
+  const result = await frame.evaluate(async () => {
+    const device = window.parent.sq64Emulator, state = structuredClone(window.parent.ledState);
+    const pad = document.querySelector('[data-control=B1]');
+    const paint = async () => {
+      device.dispatchEvent(new CustomEvent('state', {detail: structuredClone(state)}));
+      await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+    };
+    state.panel.leds.B1 = 0; await paint();
+    const dark = getComputedStyle(pad).backgroundColor;
+    state.running = true; await paint(); state.panel.leds.B1 = 255; await paint();
+    const transitions = pad.getAnimations();
+    for (const animation of transitions) { animation.pause(); animation.currentTime = 60; }
+    const halfway = getComputedStyle(pad).backgroundColor, exactLevel = pad.dataset.led;
+    for (const animation of transitions) animation.finish();
+    const lit = getComputedStyle(pad).backgroundColor;
+    state.running = false; state.panel.leds.B1 = 0; await paint();
+    const paused = {color: getComputedStyle(pad).backgroundColor, animations: pad.getAnimations().length};
+    // Debugging can be running too; retain immediate visibility of every step.
+    state.running = true; state.report.debug = {enabled: true, breakpoints: [], traceLimit: 256, trace: [], registers: {}, stoppedAt: null};
+    state.panel.leds.B1 = 255; await paint();
+    const debug = {color: getComputedStyle(pad).backgroundColor, animations: pad.getAnimations().length};
+    // Disabling the debugger restores normal presentation, except while held.
+    state.report.debug.enabled = false; state.panel.buttons.B1 = true; await paint();
+    const pressedAnimations = pad.getAnimations().length;
+    return {dark, halfway, lit, exactLevel, transitions: transitions.length, paused, debug, pressedAnimations};
+  });
+  expect(result.transitions).toBeGreaterThan(0);
+  expect(result.halfway).not.toBe(result.dark); expect(result.halfway).not.toBe(result.lit);
+  expect(result.exactLevel).toBe('255');
+  expect(result.paused).toEqual({color: result.dark, animations: 0});
+  expect(result.debug).toEqual({color: result.lit, animations: 0});
+  expect(result.pressedAnimations).toBe(0);
+  await page.emulateMedia({reducedMotion: 'reduce'});
+  const reduced = await frame.evaluate(() => {
+    const pad = document.querySelector('[data-control=B1]'); pad.setAttribute('aria-pressed', 'false');
+    return getComputedStyle(pad).transitionDuration;
+  });
+  expect(reduced).toBe('0s');
+});

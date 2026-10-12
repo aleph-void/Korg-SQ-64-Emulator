@@ -1,7 +1,9 @@
 const $ = id => document.getElementById(id);
 import {debugView} from './debug-view.js';
+import {conformanceView} from './conformance-view.js';
 let token, lastState, polling = false;
 const debuggerUI = debugView({request: api, save});
+const validationUI = conformanceView({request: api, save});
 const held = new Set();
 async function api(path, data = {}, raw = false) {
   const response = await fetch(`/api/${path}`, {method: 'POST', headers: {'Content-Type': raw ? 'application/octet-stream' : 'application/json', 'X-Session-Token': token}, body: raw ? data : JSON.stringify(data)});
@@ -37,6 +39,7 @@ function knob(name, parent) {
 for (const track of 'ABCD') { button(`track${track}`, track, 'matrix'); for (let i = 1; i <= 16; i++) button(track + i, String(i), 'matrix', true); }
 function render(state) {
   debuggerUI.render(state);
+  validationUI.render(state);
   lastState = state;
   for (const id of ['run', 'pause', 'step', 'reset', 'version', 'update', 'release', 'send-midi']) $(id).disabled = !state.loaded;
   document.querySelectorAll('[data-control], [data-encoder]').forEach(b => { b.disabled = !state.loaded; });

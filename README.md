@@ -40,6 +40,10 @@ The native GUI is optional (`python -m sq64_emulator`). OS MIDI is disabled unle
 
 ## Debug custom firmware
 
+**Validate Image** in either workbench runs the seven automated checks from the [SQ-64 conformance spec](https://github.com/aleph-void/Korg-SQ-64-Custom-Firmware-Spec/tree/a71297981a601b5e69e5d44dc44ada897050df3d) v0.2.0, `image` profile, locally. The results show each requirement, the exact loaded file's SHA-256, and the pinned spec revision. **Save validation report** downloads the results; execution and debug reports include them too. Validation preserves execution state, breakpoints, registers and trace, including when stopped at a breakpoint or fault.
+
+The profile requires a complete VSB package. BIN and ELF files remain runnable/debuggable but fail package geometry, with dependent checks marked not-run. Results concern the original loaded file, retained across reset; they do not validate subsequent runtime writes or installed updates. Loading another file clears the report. Software and hardware profiles need separate execution evidence and are not claimed by this button.
+
 Load your image, expand **Developer debugging**, and select **Enable debugging** in either workbench. This pauses execution and exposes single-instruction stepping, address breakpoints, CPU registers, code/RAM inspection, and a bounded instruction trace. **Run** continues past the current breakpoint once; **Power on** resets and stays paused while debugging is enabled. **Save debug report** exports registers and the trace alongside the image hash, fault details, and peripheral/interrupt reports. Debugging is disabled by default and can be turned off to restore normal execution speed.
 
 The native CLI also supports reproducible debug reports:
@@ -56,7 +60,7 @@ Memory inspection never invokes peripheral reads. Traces record PC/opcode bytes 
 
 ## Publish only the web app
 
-The future domain is `sq64.alephvoid.com`. [Deployment instructions](web/README.md) export only web runtime files into a directory suitable for the **root of a Pages deployment branch**. Native sources and the spec are not deployed. Nothing is pushed or published by the build command.
+The future domain is `sq64.alephvoid.com`. [Deployment instructions](web/README.md) export only web runtime files into a directory suitable for the **root of a Pages deployment branch**. The browser image validator and its license are included; native sources and the full spec project are not deployed. Nothing is pushed or published by the build command.
 
 ## Source policy
 

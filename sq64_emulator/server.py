@@ -10,11 +10,13 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from .core import Machine
 from .image import Image, FLASH
+from .conformance import validate_image
 
 class Workbench:
     def __init__(self, content=None, mapping=None, debug=None):
-        self.mapping = mapping; self.content = content; self.debug_options = debug
-        self.machine = Machine(content, panel_mapping=mapping, debug=debug) if content else None
+        self.mapping = mapping; self.content = bytes(content) if content is not None else None; self.debug_options = debug
+        self.machine = Machine(self.content, panel_mapping=mapping, debug=debug) if content else None
+        self.conformance = None
         self.running = False; self.mode = 'normal'; self.lock = threading.RLock()
         self.stop = threading.Event(); self.midi = None; self.midi_error = None
         self.worker = threading.Thread(target=self.loop, daemon=True); self.worker.start()
@@ -45,7 +47,7 @@ class Workbench:
 
     def state(self):
         if not self.machine: return {'loaded': False, 'running': False, 'midi': self.midi_error or 'disabled'}
-        return {'loaded': True, 'running': self.running, 'mode': self.mode, 'report': self.machine.report(),
+        return {'loaded': True, 'running': self.running, 'mode': self.mode, 'report': dict(self.machine.report(), conformance=self.conformance),
                 'panel': self.machine.board.panel.snapshot(), 'midi': self.midi.status() if self.midi else self.midi_error or 'disabled'}
 
     def close(self):
@@ -90,11 +92,13 @@ def make_server(workbench, port=0):
                     if self.path == '/api/load':
                         machine = Machine(raw, panel_mapping=workbench.mapping, debug=workbench.debug_options)
                         workbench.running = False; workbench.machine = machine; workbench.content = raw; workbench.mode = 'normal'
+                        workbench.conformance = None
                     else:
                         data = json.loads(raw)
                         if not workbench.machine: raise ValueError('Load a firmware image first')
                         if self.path == '/api/run': workbench.running = True
                         elif self.path == '/api/pause': workbench.running = False
+                        elif self.path == '/api/validate': workbench.conformance = validate_image(workbench.content)
                         elif self.path == '/api/step': workbench.running = False; workbench.machine.run(min(100000, max(1, int(data.get('instructions', 1)))))
                         elif self.path == '/api/debug':
                             workbench.machine.debug.configure(**data); workbench.running = False

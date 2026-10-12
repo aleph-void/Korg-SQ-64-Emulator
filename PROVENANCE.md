@@ -18,3 +18,7 @@ Reference documents:
 Run `python3 tools/audit_public.py .` before publication. The audit catches known accidental inclusions; it does not prove that arbitrary future contributions have acceptable provenance. New contributions must identify their source and use original fixtures.
 
 The official-download links store only Korg URLs. The user downloads firmware from Korg directly; this repository does not fetch, redistribute, or contain that ZIP or its contents.
+
+## Image conformance integration
+
+The image profile uses the MIT-licensed [independent SQ-64 specification](https://github.com/aleph-void/Korg-SQ-64-Custom-Firmware-Spec/tree/a71297981a601b5e69e5d44dc44ada897050df3d), version 0.2.0, commit `a71297981a601b5e69e5d44dc44ada897050df3d`. The unmodified evaluator, dependencies, catalog and board contract are vendored in `sq64_emulator/_vendor/sq64_spec/`, with its original license. The browser port is `web/emulator/conformance/validate.js`; its metadata and license are generated with `python tools/sync_conformance.py`. `--check` detects generated-file drift. Cross-language tests compare complete reports against the vendored evaluator for valid, malformed and boundary inputs. Updating the spec requires reviewing/replacing the pinned sources, updating the revision in `sq64_emulator/conformance.py`, regenerating metadata and rerunning parity tests. Firmware is never fetched or distributed by this integration.

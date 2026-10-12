@@ -4,10 +4,12 @@ import {displayPixels} from './display.js';
 import {OUTPUT_GROUPS} from './outputs.js';
 import {KnobMotion} from './knob.js';
 import {debugView} from './debug-view.js';
+import {conformanceView} from './conformance-view.js';
 import {frameRenderer} from './pacing.js';
 const device = window.parent !== window && window.parent.sq64Emulator ? window.parent.sq64Emulator : new BrowserEmulator();
 let lastState;
 const debuggerUI = debugView({request: api, save});
+const validationUI = conformanceView({request: api, save});
 const held = new Set();
 const queueRender = frameRenderer(render);
 const displayContext = $('display').getContext('2d'), displayImage = displayContext.createImageData(256, 64);
@@ -16,7 +18,7 @@ let displayDrawn = false, limitations;
 function update(state) {
   // Debugger commands use this state before their promise resolves (including
   // the checkbox's pending state); only the instrument paint is deferred.
-  debuggerUI.render(state); queueRender(state);
+  debuggerUI.render(state); validationUI.render(state); queueRender(state);
 }
 async function api(path, data = {}, raw = false) {
   if (device.locked && !['state', 'recording'].includes(path)) throw Error('Wait for the current updater or backup operation to finish');
@@ -64,6 +66,10 @@ for (const group of OUTPUT_GROUPS) {
 ['bar1', 'bar2', 'bar3', 'bar4', 'shift'].forEach(n => button(n, n.toUpperCase(), 'bars'));
 for (const track of 'ABCD') { button(`track${track}`, track, 'matrix'); for (let i = 1; i <= 16; i++) button(track + i, String(i), 'matrix', true); }
 function render(state) {
+  // Firmware PWM scans can expose a one-frame dark value between row
+  // updates. Soften their visual edges only during normal execution; paused
+  // and debugger views must paint the exact snapshot immediately.
+  panel.classList.toggle('smooth-leds', !!state.loaded && !!state.running && !state.report.debug?.enabled && !state.report.error && !state.report.board.poweredOff);
   lastState = state; $('image').disabled = !!state.locked; $('load-probe').disabled = !!state.locked; $('midi-route').disabled = !!state.locked;
   for (const id of ['run', 'pause', 'step', 'poweroff', 'reset', 'version', 'update', 'release', 'send-midi']) $(id).disabled = !state.loaded || state.locked;
   document.querySelectorAll('[data-control], [data-encoder]').forEach(b => { b.disabled = !state.loaded || state.locked; });

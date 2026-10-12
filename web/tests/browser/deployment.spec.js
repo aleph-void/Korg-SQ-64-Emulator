@@ -5,6 +5,8 @@ test('export works beneath a repository path with no native service', async ({pa
   await page.goto('/dist/'); await page.locator('#browser-workbench summary').click();
   const panel = page.frameLocator('#emulator-frame');
   await panel.locator('#load-probe').click(); await expect(panel.locator('#status')).toContainText('Running');
+  await panel.locator('#validate-image').click();
+  await expect(panel.locator('#validation-summary')).toContainText('FAIL · 0 passed · 1 failed · 6 not run');
   await page.locator('#emulated').click();
   await expect(page.locator('#connection-state')).toHaveText('Browser emulator connected');
   await expect(page.locator('link[rel=canonical]')).toHaveAttribute('href', 'https://sq64.alephvoid.com/');

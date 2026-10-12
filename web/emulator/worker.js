@@ -4,19 +4,23 @@ import {Machine} from './core.js';
 import {InteractiveInputs} from './input.js';
 import {ExecutionSlice, FRAME_INTERVAL} from './pacing.js';
 import {sha256} from '../src/protocol.js';
+import {validateImage} from './conformance/validate.js';
 let engine, machine, inputs, running = false, mode = 'normal', options = {transport: 'usb'}, lastState = 0, statePending = false;
+let loadedBytes, conformance = null;
 let execution = new ExecutionSlice();
 const onMidi = data => postMessage({type: 'midi', data});
-const state = () => machine ? {loaded: true, running, mode, midi: 'In-browser MIDI · ' + options.transport.toUpperCase(), report: machine.report(), panel: {...machine.board.panel.snapshot(), outputs: machine.board.outputLevels()}} : {loaded: false, running: false};
+const state = () => machine ? {loaded: true, running, mode, midi: 'In-browser MIDI · ' + options.transport.toUpperCase(), report: {...machine.report(), conformance}, panel: {...machine.board.panel.snapshot(), outputs: machine.board.outputLevels()}} : {loaded: false, running: false};
 function notify() {
   if (statePending) return;
   postMessage({type: 'state', state: state()}); lastState = performance.now(); statePending = true;
 }
 async function action(name, data) {
   if (name === 'load') {
-    const image = await loadImage(data.bytes); engine ||= await createUnicorn();
+    const bytes = new Uint8Array(data.bytes).slice();
+    const image = await loadImage(bytes); engine ||= await createUnicorn();
     options = {transport: data.transport || 'usb', mapping: data.mapping || {}};
     const replacement = new Machine(engine, image, {...options, onMidi}); machine?.close(); machine = replacement;
+    loadedBytes = bytes; conformance = null;
     inputs = new InteractiveInputs(machine);
     execution = new ExecutionSlice();
     running = false; mode = 'normal'; return state();
@@ -25,6 +29,7 @@ async function action(name, data) {
   if (name === 'run') running = true;
   else if (name === 'poweroff') { machine.event({type: 'power', down: true}); running = true; }
   else if (name === 'pause') running = false;
+  else if (name === 'validate') conformance = await validateImage(loadedBytes);
   else if (name === 'step') { running = false; machine.run(data.instructions || 1000); }
   else if (name === 'debug') { machine.configureDebug(data); execution = new ExecutionSlice(); running = false; }
   else if (name === 'debug-memory') {

@@ -21,6 +21,7 @@ version = {file = "VERSION"}
 
 [tool.setuptools.package-data]
 sq64_emulator = ["ui/*", "ui/assets/*", "profiles/*.json"]
+"sq64_emulator._vendor.sq64_spec" = ["*.json", "LICENSE"]
 
 [tool.setuptools.packages.find]
 include = ["sq64_emulator*"]

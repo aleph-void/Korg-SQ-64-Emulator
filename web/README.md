@@ -16,9 +16,15 @@ Use **Power off** and wait for **Powered off** before restarting after a restore
 
 The panel shows firmware-driven LED brightness and display output, with updates paced near 60 Hz and painted on browser animation frames. Execution batches adapt to host speed to keep input responsive; emulated time still depends on instruction throughput. Its top edge includes MOD, PITCH and GATE indicators for tracks A–C and eight trigger indicators for track D. These follow the CV stream, gate pins and trigger latch, using the Aleph Void accent color. Brightness is a relative activity estimate; calibrated jack voltages and CV/gate/sync traces are not implemented.
 
+During normal execution, pad brightness transitions take 120 ms to soften coarse PWM steps and brief dark samples in startup animations. Pressed pads, paused or faulted execution, and debugging show changes immediately. Reduced-motion preferences disable the transitions. Reported LED values and emulated timing are unchanged.
+
 Turn knobs with a vertical drag, the scroll wheel, or the arrow keys. Wheel and drag distance determine the number of steps; tiny trackpad events accumulate. Hold Shift while dragging or scrolling for four times finer adjustment. Arrow keys produce one step. Interactive steps are spaced in virtual time to avoid unintended firmware acceleration when the browser runs slower than the device.
 
 ## Debugging firmware
+
+**Validate Image** runs the pinned SQ-64 spec v0.2.0 `image` profile against the exact file loaded into the emulator. All seven requirements appear with pass/fail/not-run results, the file hash and the spec revision. **Save validation report** exports JSON; execution and debug reports also include the last validation. It works while running, paused, stopped at a breakpoint, or faulted without changing CPU/debugger state. Updater and backup transaction locks disable the action.
+
+The spec requires a full VSB: raw BIN and ELF inputs fail `PKG-001` and leave six checks not-run. The original file is retained across resets, so results do not cover later emulated storage writes or installed updates. A successful image replacement clears validation. These are package checks, not software execution or hardware certification. No network fetch, upload, or Python runtime is needed in the browser.
 
 Expand **Developer debugging** after loading an image and select **Enable debugging**. The emulator pauses and displays CPU registers, breakpoints, a code/RAM memory viewer and recent instruction opcode bytes. **Step 1 instruction** advances one CPU instruction boundary. Enter decimal or `0x` hexadecimal addresses, then choose **Apply breakpoints and trace**; an empty list removes all breakpoints. **Run** continues past a breakpoint once and stops again if execution returns to it.
 
@@ -36,7 +42,7 @@ npm run build -- --out /tmp/sq64-pages-export
 
 The output directory must be empty or absent. Review that export, copy its contents into the root of your deployment branch, commit and push when ready, then select that branch and `/ (root)` in Pages settings. The command itself does not alter Git branches, commit, push or deploy. Alternatively, `npm run build` refreshes the disposable `web/dist/` output.
 
-The export contains the updater, browser emulator, fonts, branding, original diagnostic probe, licenses, complete Unicorn corresponding source, `.nojekyll`, and `CNAME` for `sq64.alephvoid.com`. It excludes tests, development dependencies, native Python code and the conformance project. Never copy private firmware into this tree.
+The export contains the updater, browser emulator, image conformance validator and metadata, fonts, branding, original diagnostic probe, licenses, complete Unicorn corresponding source, `.nojekyll`, and `CNAME` for `sq64.alephvoid.com`. It excludes tests, development dependencies, native Python code and the full conformance project. Never copy private firmware into this tree.
 
 URLs are relative, so the app also runs below a repository URL path. Remove/change `CNAME` and canonical metadata if intentionally deploying elsewhere. Configure custom-domain DNS and HTTPS separately. `_headers` is for hosts that support it; GitHub Pages does not use this file, so the app also includes its content security policy in HTML. Same-origin embedding and WebAssembly are permitted, without cross-origin isolation, SharedArrayBuffer, an API server or a service worker.
 

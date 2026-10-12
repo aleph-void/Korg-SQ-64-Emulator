@@ -1,0 +1,1422 @@
+{
+  "format": "sq64-requirements",
+  "version": "0.2.0",
+  "profiles": {
+    "image": "Bounded full-system VSB structural checks",
+    "hardware": "Device contract, including physical evidence and declared feature behavior",
+    "korg-compatible": "Hardware contract plus optional published Korg behavior compatibility",
+    "software": "Bounded candidate execution against the documented emulator interface; excludes physical/electrical certification"
+  },
+  "requirements": [
+    {
+      "id": "PKG-001",
+      "title": "Container",
+      "shall": "Use one 256-byte VSB header and a 0x38000-byte full system payload.",
+      "verification": "Executed by sq64_spec.image.inspect; corrupt-field negative fixtures cover each check.",
+      "profiles": [
+        "image",
+        "software",
+        "hardware",
+        "korg-compatible"
+      ],
+      "source": "image-contract",
+      "evidenceKinds": [
+        "static"
+      ],
+      "quantitative": false,
+      "cases": []
+    },
+    {
+      "id": "PKG-002",
+      "title": "Target identity",
+      "shall": "Identify SQ-64 SYSTEM block zero, product ID 00 01 60, and member FF.",
+      "verification": "Executed by sq64_spec.image.inspect; corrupt-field negative fixtures cover each check.",
+      "profiles": [
+        "image",
+        "software",
+        "hardware",
+        "korg-compatible"
+      ],
+      "source": "image-contract",
+      "evidenceKinds": [
+        "static"
+      ],
+      "quantitative": false,
+      "cases": []
+    },
+    {
+      "id": "PKG-003",
+      "title": "Geometry",
+      "shall": "Use base zero, start zero, and total and payload length 0x38000.",
+      "verification": "Executed by sq64_spec.image.inspect; corrupt-field negative fixtures cover each check.",
+      "profiles": [
+        "image",
+        "software",
+        "hardware",
+        "korg-compatible"
+      ],
+      "source": "image-contract",
+      "evidenceKinds": [
+        "static"
+      ],
+      "quantitative": false,
+      "cases": []
+    },
+    {
+      "id": "PKG-004",
+      "title": "Version encoding",
+      "shall": "Use major <64, minor <128 and delay <=60000 ms or FFFFFFFF.",
+      "verification": "Executed by sq64_spec.image.inspect; corrupt-field negative fixtures cover each check.",
+      "profiles": [
+        "image",
+        "software",
+        "hardware",
+        "korg-compatible"
+      ],
+      "source": "image-contract",
+      "evidenceKinds": [
+        "static"
+      ],
+      "quantitative": false,
+      "cases": []
+    },
+    {
+      "id": "PKG-005",
+      "title": "Payload checksums",
+      "shall": "Make each documented checksum region sum to zero modulo 65536.",
+      "verification": "Executed by sq64_spec.image.inspect; corrupt-field negative fixtures cover each check.",
+      "profiles": [
+        "image",
+        "software",
+        "hardware",
+        "korg-compatible"
+      ],
+      "source": "image-contract",
+      "evidenceKinds": [
+        "static"
+      ],
+      "quantitative": false,
+      "cases": []
+    },
+    {
+      "id": "BOOT-001",
+      "title": "Initial stack",
+      "shall": "Place the eight-byte-aligned initial stack within 0x20000000..0x20040000, excluding the lower bound.",
+      "verification": "Executed by sq64_spec.image.inspect; corrupt-field negative fixtures cover each check.",
+      "profiles": [
+        "image",
+        "software",
+        "hardware",
+        "korg-compatible"
+      ],
+      "source": "image-contract",
+      "evidenceKinds": [
+        "static"
+      ],
+      "quantitative": false,
+      "cases": []
+    },
+    {
+      "id": "BOOT-002",
+      "title": "Reset vector",
+      "shall": "Provide a Thumb reset vector in loaded internal flash.",
+      "verification": "Executed by sq64_spec.image.inspect; corrupt-field negative fixtures cover each check.",
+      "profiles": [
+        "image",
+        "software",
+        "hardware",
+        "korg-compatible"
+      ],
+      "source": "image-contract",
+      "evidenceKinds": [
+        "static"
+      ],
+      "quantitative": false,
+      "cases": []
+    },
+    {
+      "id": "BOOT-003",
+      "title": "Cold startup",
+      "shall": "Initialize every RAM value read before first assignment and reach an observable ready state from cold reset.",
+      "verification": "Cold boot twice with RAM filled with 00, FF and deterministic random bytes; compare declared ready condition.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "zero-ram",
+        "ff-ram",
+        "seeded-ram",
+        "repeat-ready"
+      ]
+    },
+    {
+      "id": "BOOT-004",
+      "title": "Startup modes",
+      "shall": "Interpret GLOBAL held at power-on as version mode and GLOBAL+PATTERN as update mode.",
+      "verification": "Boot using held panel signals, then release; verify version and updater discovery on candidate execution.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "normal",
+        "global-version",
+        "global-pattern-update",
+        "release-chord"
+      ]
+    },
+    {
+      "id": "BOOT-005",
+      "title": "Reboot persistence",
+      "shall": "Retain committed user data over normal software and power-button restart.",
+      "verification": "Save distinct values, restart twice, export and compare logical data.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "committed-save",
+        "software-restart",
+        "power-button-shutdown",
+        "cold-readback"
+      ]
+    },
+    {
+      "id": "BOOT-006",
+      "title": "Fault behavior",
+      "shall": "Report unrecoverable faults without continuing uncontrolled output or corrupting persistent data.",
+      "verification": "Inject invalid vectors and unaligned multiword access in original diagnostic builds; expect explicit failure.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "invalid-vector",
+        "unaligned-multiword",
+        "inactive-outputs",
+        "persistent-data-guards"
+      ]
+    },
+    {
+      "id": "BOOT-007",
+      "title": "Power sources",
+      "shall": "Start and operate with each supported power source.",
+      "verification": "Physical USB-power and external-adapter cold-start trials with candidate hashes recorded.",
+      "profiles": [
+        "hardware",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "usb-power",
+        "external-power"
+      ]
+    },
+    {
+      "id": "CPU-001",
+      "title": "Alignment",
+      "shall": "Honor architectural alignment requirements for stack, exception frames and multiword/FP transfers.",
+      "verification": "Directed aligned/misaligned scalar, LDM/STM, LDRD/STRD and FP cases; no model bypass.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "scalar-alignment",
+        "ldm-stm",
+        "ldrd-strd",
+        "floating-point",
+        "stack-alignment"
+      ]
+    },
+    {
+      "id": "CPU-002",
+      "title": "Interrupt masking",
+      "shall": "Honor PRIMASK, BASEPRI, FAULTMASK, NVIC enable and priorities.",
+      "verification": "Pending interrupts across mask transitions and nested higher/lower-priority delivery.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "primask",
+        "basepri",
+        "faultmask",
+        "nvic-enable",
+        "nested-priorities"
+      ]
+    },
+    {
+      "id": "CPU-003",
+      "title": "Exception context",
+      "shall": "Preserve architectural integer, stack, status and active floating-point state through interrupts.",
+      "verification": "Preempt thread/handler on MSP/PSP, including IT slots, nested IRQs, eager and lazy FP.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "msp",
+        "psp",
+        "it-slots",
+        "nested-irqs",
+        "stack-padding",
+        "eager-fp",
+        "lazy-fp"
+      ]
+    },
+    {
+      "id": "CPU-004",
+      "title": "Memory bounds",
+      "shall": "Keep code, data, stack and DMA accesses within the image and board memory contracts.",
+      "verification": "Guard every mapped boundary; stress maximum queues and stack depth under simultaneous events.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "code-boundaries",
+        "data-boundaries",
+        "stack-guards",
+        "dma-boundaries",
+        "maximum-queues"
+      ]
+    },
+    {
+      "id": "CPU-005",
+      "title": "Concurrency",
+      "shall": "Preserve storage, MIDI and control invariants under racing interrupt and DMA schedules.",
+      "verification": "Replay deterministic varied interleavings; retain every counterexample and its seed.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "storage-midi-races",
+        "control-dma-races",
+        "seeded-replay",
+        "counterexample-replay"
+      ]
+    },
+    {
+      "id": "PANEL-001",
+      "title": "Buttons",
+      "shall": "Read each supported physical button independently without aliasing another control.",
+      "verification": "Exercise 64 pads, 21 named buttons, release, hold, simultaneous presses and repeated transitions.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "all-85-press-release",
+        "holds",
+        "simultaneous-presses",
+        "repeated-transitions"
+      ]
+    },
+    {
+      "id": "PANEL-002",
+      "title": "Encoders",
+      "shall": "Read six encoders with both directions and bounded burst rates.",
+      "verification": "One detent each way, wrap, acceleration and bursts; compare physical and modeled input events.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "all-six-both-directions",
+        "reversals",
+        "wrap",
+        "acceleration",
+        "bounded-bursts"
+      ]
+    },
+    {
+      "id": "PANEL-003",
+      "title": "LEDs",
+      "shall": "Drive each physical indicator within the board signaling contract.",
+      "verification": "One indicator at a time and all indicators; inspect row multiplexing and physical output.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "each-panel-indicator",
+        "all-panel-indicators",
+        "top-edge-17",
+        "multiplexing"
+      ]
+    },
+    {
+      "id": "PANEL-004",
+      "title": "Display",
+      "shall": "Write display commands and frame data within controller and DMA limits.",
+      "verification": "Blank, all-on, checkerboard, edge pixels, frame refresh and custom menu drawing from candidate data.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "blank",
+        "all-on",
+        "checkerboard",
+        "edge-pixels",
+        "refresh",
+        "command-bounds"
+      ]
+    },
+    {
+      "id": "PANEL-005",
+      "title": "Input under load",
+      "shall": "Continue servicing controls while sequencing, receiving MIDI and saving.",
+      "verification": "Deterministic combined workload; no stuck press or silently lost release.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": true,
+      "cases": [
+        "sequencing-midi-save-load",
+        "press-release-latency",
+        "no-stuck-controls"
+      ]
+    },
+    {
+      "id": "MIDI-001",
+      "title": "Enumeration",
+      "shall": "Enumerate as the declared USB MIDI interfaces and cable routing.",
+      "verification": "Enumerate host descriptors, inspect endpoint types/lengths and probe each cable on physical hardware.",
+      "profiles": [
+        "hardware",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "descriptors",
+        "endpoint-types-lengths",
+        "each-cable",
+        "cold-enumeration"
+      ]
+    },
+    {
+      "id": "MIDI-002",
+      "title": "Channel messages",
+      "shall": "Parse declared MIDI channel messages without buffer overrun or stuck notes.",
+      "verification": "All status/channel values, two/three-byte messages, all data bytes, running status, truncation and saturation.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "all-status-channel-values",
+        "data-boundaries",
+        "running-status",
+        "truncation",
+        "saturation",
+        "no-stuck-notes"
+      ]
+    },
+    {
+      "id": "MIDI-003",
+      "title": "Realtime interleaving",
+      "shall": "Handle realtime bytes inserted inside other MIDI messages and SysEx.",
+      "verification": "Insert clock/start/continue/stop at every boundary; verify parser state remains valid.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "clock-boundaries",
+        "start-continue-stop-boundaries",
+        "sysex-interleaving",
+        "parser-recovery"
+      ]
+    },
+    {
+      "id": "MIDI-004",
+      "title": "SysEx framing",
+      "shall": "Bound SysEx buffers and reject malformed framing or incorrect product routing.",
+      "verification": "Wrong IDs, incomplete groups, excessive lengths, timeout, nested F0 and recovery to next valid frame.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "wrong-routing",
+        "incomplete-groups",
+        "oversized-input",
+        "timeout",
+        "nested-f0",
+        "recovery"
+      ]
+    },
+    {
+      "id": "MIDI-005",
+      "title": "USB packetization",
+      "shall": "Handle MIDI event packets and short USB transfers correctly.",
+      "verification": "Every supported CIN, all final SysEx group sizes, cable indices, 0/4/64-byte transfers and invalid sizes.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "supported-cin",
+        "sysex-tails",
+        "cable-indices",
+        "zero-four-64-byte-transfers",
+        "invalid-sizes"
+      ]
+    },
+    {
+      "id": "MIDI-006",
+      "title": "DIN transport",
+      "shall": "Maintain correct MIDI DIN framing and supported receive/transmit behavior.",
+      "verification": "Loopback and independent receiver trials at 31250 baud, including two outputs and receive overrun.",
+      "profiles": [
+        "hardware",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": true,
+      "cases": [
+        "31250-baud",
+        "input",
+        "output-one",
+        "output-two",
+        "overrun"
+      ]
+    },
+    {
+      "id": "MIDI-007",
+      "title": "Isolation",
+      "shall": "Prevent one MIDI cable or physical port from corrupting another port state.",
+      "verification": "Interleave distinct streams on every available logical and physical port.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "logical-cable-isolation",
+        "physical-port-isolation",
+        "concurrent-streams"
+      ]
+    },
+    {
+      "id": "CLOCK-001",
+      "title": "Internal clock",
+      "shall": "Meet the timing and jitter limits declared by the selected sequencing profile.",
+      "verification": "Measure output intervals with independent capture; declare tempo, load, tolerance and sample count.",
+      "profiles": [
+        "hardware",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": true,
+      "cases": [
+        "tempo-minimum",
+        "tempo-maximum",
+        "jitter-under-load",
+        "independent-capture"
+      ]
+    },
+    {
+      "id": "CLOCK-002",
+      "title": "External clock",
+      "shall": "Handle declared sync/MIDI clock ratios, missing pulses and wraparound.",
+      "verification": "First pulse, rate changes, missing/extra pulses, timestamp wrap and maximum supported rate.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": true,
+      "cases": [
+        "first-pulse",
+        "rate-changes",
+        "missing-extra-pulses",
+        "timestamp-wrap",
+        "maximum-rate"
+      ]
+    },
+    {
+      "id": "CLOCK-003",
+      "title": "Transport",
+      "shall": "Handle start, stop and continue without unintended lingering outputs.",
+      "verification": "Repeated transitions at step boundaries and during note/gate activity.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "start",
+        "stop",
+        "continue",
+        "step-boundary",
+        "active-note-gate"
+      ]
+    },
+    {
+      "id": "CLOCK-004",
+      "title": "Scheduling",
+      "shall": "Satisfy declared output deadlines during concurrent storage, display and USB traffic.",
+      "verification": "Independent timing capture under worst documented simultaneous workload; software ticks alone do not pass.",
+      "profiles": [
+        "hardware",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": true,
+      "cases": [
+        "storage-display-usb-load",
+        "worst-deadline",
+        "independent-capture"
+      ]
+    },
+    {
+      "id": "OUTPUT-001",
+      "title": "CV range",
+      "shall": "Keep pitch/modulation outputs within the supported configured voltage range.",
+      "verification": "Physical measurements at minimum, midpoint and maximum with declared calibration and equipment.",
+      "profiles": [
+        "hardware",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": true,
+      "cases": [
+        "each-range-minimum",
+        "each-range-midpoint",
+        "each-range-maximum",
+        "calibration-equipment"
+      ]
+    },
+    {
+      "id": "OUTPUT-002",
+      "title": "Gate polarity",
+      "shall": "Apply selected gate/trigger polarity and configured inactive state.",
+      "verification": "Verify every gate/trigger jack in each declared polarity and during reset, stop and error.",
+      "profiles": [
+        "hardware",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "each-gate-trigger",
+        "each-polarity",
+        "reset",
+        "stop",
+        "fault"
+      ]
+    },
+    {
+      "id": "OUTPUT-003",
+      "title": "Calibration",
+      "shall": "Preserve device-specific calibration data and use the declared conversion contract.",
+      "verification": "Before/after hashes of protected storage plus measured conversion at documented test points.",
+      "profiles": [
+        "hardware",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": true,
+      "cases": [
+        "protected-before-after",
+        "conversion-test-points",
+        "measurement-uncertainty"
+      ]
+    },
+    {
+      "id": "OUTPUT-004",
+      "title": "Pin configuration",
+      "shall": "Avoid conflicting peripheral assignments and unsupported electrical drive modes.",
+      "verification": "Review GPIO configuration against board evidence; verify physical output behavior.",
+      "profiles": [
+        "hardware",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "gpio-assignments",
+        "drive-modes",
+        "independent-pin-verification"
+      ]
+    },
+    {
+      "id": "OUTPUT-005",
+      "title": "Sequencer semantics",
+      "shall": "Meet the behavior and boundaries of the firmware's declared sequencing profile.",
+      "verification": "Custom firmware supplies explicit feature profile; Korg-compatible profile adds stock-semantic tests.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "declared-features",
+        "feature-boundaries",
+        "expected-output-traces"
+      ]
+    },
+    {
+      "id": "STORE-001",
+      "title": "Address ownership",
+      "shall": "Write only declared user-data or firmware regions and preserve reserved/device-specific regions.",
+      "verification": "Trace all erase/program commands and compare guard regions before and after.",
+      "profiles": [
+        "hardware",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "ownership-map",
+        "erase-program-trace",
+        "reserved-before-after"
+      ]
+    },
+    {
+      "id": "STORE-002",
+      "title": "Flash semantics",
+      "shall": "Respect erase geometry, write enable, page limits and zero-to-one restrictions.",
+      "verification": "Boundary and cross-page writes, disabled writes, busy status, sector ends and malformed requests.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "page-sector-boundaries",
+        "cross-page",
+        "write-enable",
+        "busy",
+        "zero-to-one",
+        "malformed"
+      ]
+    },
+    {
+      "id": "STORE-003",
+      "title": "Save and load",
+      "shall": "Restore complete committed projects and settings without cross-slot contamination.",
+      "verification": "Exercise every project/control/scale slot with distinct synthetic data and normal restart.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "all-project-slots",
+        "all-control-slots",
+        "all-scale-slots",
+        "settings",
+        "normal-restart",
+        "cross-slot-guards"
+      ]
+    },
+    {
+      "id": "STORE-004",
+      "title": "Interrupted data save",
+      "shall": "Define and meet a recoverable outcome for interrupted project/settings saves.",
+      "verification": "Interrupt each save phase in software; require previous or new valid state, or documented explicit recovery.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "each-save-phase",
+        "previous-or-new-valid-state",
+        "explicit-recovery"
+      ]
+    },
+    {
+      "id": "STORE-005",
+      "title": "Input validation",
+      "shall": "Reject or safely represent malformed imported data without memory corruption.",
+      "verification": "Every field boundary, cross-field invalid combination, truncated dump and inconsistent presence map.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "field-boundaries",
+        "cross-field-invalid",
+        "truncated-dump",
+        "presence-map",
+        "memory-guards"
+      ]
+    },
+    {
+      "id": "STORE-006",
+      "title": "Migration",
+      "shall": "Handle declared older/newer data formats without silent destructive conversion.",
+      "verification": "Round-trip supported formats; explicitly reject unsupported versions before writing.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "supported-older",
+        "supported-newer",
+        "round-trip",
+        "reject-unsupported-before-write"
+      ]
+    },
+    {
+      "id": "STORE-007",
+      "title": "Wear behavior",
+      "shall": "Bound redundant erase/program operations for repeated unchanged settings.",
+      "verification": "Trace operation counts under repeated edits/saves and compare declared endurance policy.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": true,
+      "cases": [
+        "unchanged-settings",
+        "repeated-edits",
+        "erase-program-counts",
+        "endurance-policy"
+      ]
+    },
+    {
+      "id": "VUP-001",
+      "title": "Discovery",
+      "shall": "Report a supported protocol and nonzero packet size, with truthful capabilities.",
+      "verification": "Search/version requests in update mode on cold boot and after an update.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "cold-discovery-version",
+        "post-update-discovery-version",
+        "packet-size-capabilities"
+      ]
+    },
+    {
+      "id": "VUP-002",
+      "title": "Begin validation",
+      "shall": "Reject wrong targets, invalid geometry and unsupported packet sizes before programming.",
+      "verification": "Malformed begin matrix and boundary lengths; inspect flash before and after rejection.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "wrong-target",
+        "geometry-boundaries",
+        "unsupported-size",
+        "no-write-on-rejection"
+      ]
+    },
+    {
+      "id": "VUP-003",
+      "title": "Packing",
+      "shall": "Use canonical seven-bit MIDI packing and encoded-payload additive checksums.",
+      "verification": "All input byte values and all partial groups; injected mask/checksum faults must fail.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "all-byte-values",
+        "all-partial-groups",
+        "mask-errors",
+        "checksum-errors"
+      ]
+    },
+    {
+      "id": "VUP-004",
+      "title": "Transfer order",
+      "shall": "Acknowledge each accepted packet and reject invalid order without committing unrelated data.",
+      "verification": "Executed transcript validator plus candidate receiver tests for duplicates, gaps and NAK behavior.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "complete-ordered-transfer",
+        "duplicate",
+        "gap",
+        "nak",
+        "unrelated-data-guards"
+      ]
+    },
+    {
+      "id": "VUP-005",
+      "title": "Completion",
+      "shall": "Distinguish packet receipt, programming completion and successful restart.",
+      "verification": "Complete update in emulation and hardware; verify display completion and post-reboot identity.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "final-packet-ack",
+        "programming-completion",
+        "installed-bytes",
+        "cold-version",
+        "normal-boot"
+      ]
+    },
+    {
+      "id": "VUP-006",
+      "title": "Interrupted transfer",
+      "shall": "Define behavior for host disconnect or timeout at each transfer phase.",
+      "verification": "Stop host traffic at each boundary; verify declared response and retained data without blind retry.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "each-disconnect-phase",
+        "each-timeout-phase",
+        "retained-data",
+        "no-blind-retry"
+      ]
+    },
+    {
+      "id": "VUP-007",
+      "title": "Future updates",
+      "shall": "Retain a working documented method to install a subsequent firmware image.",
+      "verification": "Candidate-to-candidate or candidate-to-approved-restore update, then cold boot.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "subsequent-update",
+        "cold-boot",
+        "normal-operation"
+      ]
+    },
+    {
+      "id": "VUP-008",
+      "title": "Flash power loss scope",
+      "shall": "Document that power loss during internal-flash programming is not guaranteed recoverable under this profile.",
+      "verification": "Documentation check; deliberate physical power cuts during internal flash programming are excluded.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "review",
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "document-unrecoverable-power-loss",
+        "exclude-physical-programming-power-cuts"
+      ]
+    },
+    {
+      "id": "BACKUP-001",
+      "title": "Coverage",
+      "shall": "List every included user-data category and explicitly list exclusions.",
+      "verification": "Check 64 saved project slots, current edit buffer, pattern presence, controls, scales and global settings.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "review",
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "included-categories",
+        "explicit-exclusions",
+        "scope-and-empty-slots"
+      ]
+    },
+    {
+      "id": "BACKUP-002",
+      "title": "Project sessions",
+      "shall": "Transfer project headers and present patterns in a bounded session and finalize it.",
+      "verification": "Normal, empty, partial and interrupted project sessions; no incomplete archive may be labeled complete.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "normal-session",
+        "empty-session",
+        "partial-session",
+        "interrupted-session",
+        "finalize-ack"
+      ]
+    },
+    {
+      "id": "BACKUP-003",
+      "title": "Integrity",
+      "shall": "Bind each backup record to its type, slot, length, canonical encoding and digest.",
+      "verification": "Wrong slot, wrong type, altered payload, duplicate/missing pattern and oversized archive tests.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "record-type-slot-length",
+        "canonical-packing",
+        "digest",
+        "missing-duplicate-pattern",
+        "oversized-archive"
+      ]
+    },
+    {
+      "id": "BACKUP-004",
+      "title": "Restoration",
+      "shall": "Restore included data and verify it through independent readback and normal restart.",
+      "verification": "Compare all included logical bytes after write, restart and export; preserve intentionally excluded slots.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "all-included-data",
+        "independent-readback",
+        "normal-shutdown",
+        "cold-readback",
+        "excluded-slot-guards"
+      ]
+    },
+    {
+      "id": "ROBUST-001",
+      "title": "Boundary coverage",
+      "shall": "Exercise valid extremes and invalid adjacent values for each public input field.",
+      "verification": "Versioned field inventory, partitioned tests and deterministic fuzz seeds.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "field-inventory",
+        "valid-extremes",
+        "invalid-adjacent",
+        "seeded-fuzz"
+      ]
+    },
+    {
+      "id": "ROBUST-002",
+      "title": "Resource limits",
+      "shall": "Remain within declared stack, RAM, queues and storage budgets.",
+      "verification": "High water marks under maximal simultaneous supported workload; detect guard violations.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": true,
+      "cases": [
+        "stack-high-water",
+        "ram-budget",
+        "queue-budget",
+        "storage-budget",
+        "concurrent-maximum"
+      ]
+    },
+    {
+      "id": "ROBUST-003",
+      "title": "Long run",
+      "shall": "Meet declared sustained-operation behavior without accumulating corrupt state.",
+      "verification": "Record duration, traffic and state checks; reproduce with instruction/event replay where applicable.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": true,
+      "cases": [
+        "declared-duration",
+        "declared-traffic",
+        "periodic-state-checks",
+        "replay-seeds"
+      ]
+    },
+    {
+      "id": "ROBUST-004",
+      "title": "Evidence identity",
+      "shall": "Bind every result to the exact candidate, tool versions, model profile and procedure.",
+      "verification": "Reject stale hashes, unknown IDs and missing evidence; never convert not-run into pass.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "review",
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "candidate-hash",
+        "tool-identities",
+        "environment-profile",
+        "procedure-revision",
+        "missing-stale-rejection"
+      ]
+    },
+    {
+      "id": "COMPAT-001",
+      "title": "Project layout",
+      "shall": "Preserve the documented project and pattern data layouts.",
+      "verification": "Round-trip all documented fields and reserved bytes; reference fixtures supplied locally only.",
+      "profiles": [
+        "korg-compatible"
+      ],
+      "source": "published-midi-implementation",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "documented-fields",
+        "reserved-bytes",
+        "project-round-trip",
+        "pattern-round-trip"
+      ]
+    },
+    {
+      "id": "COMPAT-002",
+      "title": "Global and controls",
+      "shall": "Preserve documented global/control/scale serialization and supported settings.",
+      "verification": "Boundary matrix for every field and slot.",
+      "profiles": [
+        "korg-compatible"
+      ],
+      "source": "published-midi-implementation",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "global-fields",
+        "control-fields-slots",
+        "scale-fields-slots",
+        "boundaries"
+      ]
+    },
+    {
+      "id": "COMPAT-003",
+      "title": "Sequencing",
+      "shall": "Match the declared Korg-compatible note, gate, modulation and probability semantics.",
+      "verification": "Independent expected MIDI/CV event traces for every claimed feature; random seeds fixed.",
+      "profiles": [
+        "korg-compatible"
+      ],
+      "source": "published-midi-implementation",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "notes",
+        "gates",
+        "modulation",
+        "probability",
+        "fixed-seeds",
+        "expected-event-traces"
+      ]
+    },
+    {
+      "id": "COMPAT-004",
+      "title": "Intentional deviations",
+      "shall": "Declare each intentional compatibility deviation and its rationale.",
+      "verification": "Expected-failure entries may not count as passes for a strict compatibility claim.",
+      "profiles": [
+        "korg-compatible"
+      ],
+      "source": "published-midi-implementation",
+      "evidenceKinds": [
+        "review",
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "declared-deviations",
+        "rationale",
+        "no-expected-failure-passes"
+      ]
+    }
+  ],
+  "releaseBlockers": [
+    "Physical board pin assignments, display controller commands and exact MCU/flash parts require independent confirmation",
+    "Protected and calibration storage ownership requires independent confirmation",
+    "Electrical output ranges, calibration, clock accuracy and worst-case timing require measured acceptance bounds",
+    "Complete candidate-specific hardware campaigns remain required; bounded software compatibility does not certify hardware"
+  ]
+}

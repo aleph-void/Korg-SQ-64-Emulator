@@ -12,6 +12,7 @@ test('Pages export contains only deployable web files and refuses to overwrite a
     for (const excluded of ['sq64_emulator', 'tests', 'tools', 'node_modules', 'package.json', 'recomp']) assert.equal(entries.includes(excluded), false);
     for (const needed of ['index.html', 'emulator', 'vendor', 'examples', 'CNAME', '.nojekyll']) assert.equal(entries.includes(needed), true);
     assert.equal((await readFile(join(out, 'CNAME'), 'utf8')).trim(), 'sq64.alephvoid.com');
+    for (const path of ['emulator/conformance/validate.js', 'emulator/conformance/spec.js', 'emulator/conformance/LICENSE', 'emulator/conformance-view.js']) assert.ok((await readFile(join(out, path))).length);
     assert.throws(() => execFileSync(process.execPath, ['tools/build.js', '--out', out], {stdio: 'pipe'}), /Command failed/);
   } finally { await rm(out, {recursive: true, force: true}); }
 });
