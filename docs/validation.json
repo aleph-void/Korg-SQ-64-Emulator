@@ -1,0 +1,43 @@
+{
+  "date": "2026-10-11",
+  "environment": "Linux; Chromium 1228; Node 20; Python 3.14; Emscripten 3.1.62",
+  "webUnitTests": {
+    "passed": 23,
+    "failed": 0
+  },
+  "browserTests": {
+    "passed": 8,
+    "failed": 0
+  },
+  "nativeTests": {
+    "passed": 29,
+    "failed": 0
+  },
+  "specTests": {
+    "passed": 8,
+    "failed": 0
+  },
+  "wasmRebuiltFromPinnedSources": true,
+  "armIntegration": {
+    "source": "examples/browser_probe.c",
+    "packets": 224,
+    "payloadBytesCompared": 229376,
+    "backupRecords": 9,
+    "route": "modeled DIN UART through worker-local MIDI ports"
+  },
+  "visualReview": [
+    "desktop 1440 px",
+    "mobile 390 px; instrument scrolls horizontally"
+  ],
+  "hardwareConformance": "not-established",
+  "hardwareTouched": false,
+  "deployed": false,
+  "domain": "sq64.alephvoid.com",
+  "limitations": [
+    "Physical button/encoder/LED mapping incomplete",
+    "Display layout provisional",
+    "Full real-firmware USB attach not verified",
+    "Probe stages firmware and acknowledges restore; does not install firmware or persist restored data",
+    "macOS and Windows runtime tests not yet observed"
+  ]
+}

@@ -1,0 +1,55 @@
+--- a/qemu/target/arm/translate.c
++++ b/qemu/target/arm/translate.c
+@@ -11571,6 +11571,23 @@
+     }
+     dc->insn = insn;
+ 
++    /* SQ64 validation: expose the complete pre-instruction EPSR and honor
++     * exits at every Thumb instruction, including false IT slots. Place
++     * hooks before the predicate so an exception never inherits its skip. */
++    uc->no_exit_request = false;
++    insn_size = is_16bit ? 2 : 4;
++    if (HOOK_EXISTS_BOUNDED(uc, UC_HOOK_CODE, dc->base.pc_next - insn_size)) {
++        gen_set_pc_im(dc, dc->base.pc_next - insn_size);
++        gen_set_condexec(dc);
++        gen_uc_tracecode(tcg_ctx, insn_size, UC_HOOK_CODE_IDX, uc, dc->base.pc_next - insn_size);
++        check_exit_request(tcg_ctx);
++        /* Restore the translator invariant on normal continuation. A hook
++         * exit branches out above with the published pre-instruction state. */
++        TCGv_i32 it_zero = tcg_temp_new_i32(tcg_ctx);
++        tcg_gen_movi_i32(tcg_ctx, it_zero, 0);
++        store_cpu_field(tcg_ctx, it_zero, condexec_bits);
++    }
++
+     if (dc->condexec_mask && !thumb_insn_is_unconditional(dc, insn)) {
+         uint32_t cond = dc->condexec_cond;
+ 
+@@ -11581,28 +11598,6 @@
+         if (cond < 0x0e) {
+             arm_skip_unless(dc, cond);
+         }
+-    }
+-    
+-    // Unicorn:
+-    //   We can't stop in the middle of the IT block.
+-    //   In other words, treat the whole IT block as
+-    //   a single instruction.
+-    uc->no_exit_request = (dc->condexec_mask != 0);
+-
+-    // Unicorn: trace this instruction on request
+-    insn_size = is_16bit ? 2 : 4;
+-    if (HOOK_EXISTS_BOUNDED(uc, UC_HOOK_CODE, dc->base.pc_next - insn_size)) {
+-        
+-        // Sync PC in advance
+-        gen_set_pc_im(dc, dc->base.pc_next - insn_size);
+-
+-        if (uc->no_exit_request) {
+-            gen_uc_tracecode(tcg_ctx, insn_size, UC_HOOK_CODE_IDX | UC_HOOK_FLAG_NO_STOP, uc, dc->base.pc_next - insn_size);
+-        } else {
+-            gen_uc_tracecode(tcg_ctx, insn_size, UC_HOOK_CODE_IDX, uc, dc->base.pc_next - insn_size);
+-        }
+-        // the callback might want to stop emulation immediately
+-        check_exit_request(tcg_ctx);
+     }
+ 
+     tcg_ctx->pc_start = dc->base.pc_next - insn_size;

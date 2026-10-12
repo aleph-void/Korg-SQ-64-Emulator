@@ -1,0 +1,17 @@
+{
+  "wrapperCommit": "1220477c7fb0f8fe4b500f4bd211de52f6dfe638",
+  "unicornCommit": "8028ec436f2d9376525352dd38ed9ed6b9f6be10",
+  "emscripten": "3.1.62",
+  "archives": [
+    {
+      "file": "sq64-unicornjs-source.tar.gz",
+      "url": "https://codeload.github.com/AlexAltea/unicorn.js/tar.gz/1220477c7fb0f8fe4b500f4bd211de52f6dfe638",
+      "sha256": "3ba962b46abb7417b805241e5ae003c1c4517c1718feba44cbc7785d97989221"
+    },
+    {
+      "file": "sq64-unicorn-wasm-source.tar.gz",
+      "url": "https://codeload.github.com/unicorn-engine/unicorn/tar.gz/8028ec436f2d9376525352dd38ed9ed6b9f6be10",
+      "sha256": "9d2a2003f0307d0fc239af439654564fe6ef17b67f7c5a39b45fad4c69d6aec2"
+    }
+  ]
+}

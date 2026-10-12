@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.venv/
+*.egg-info/
+build/
+node_modules/
+dist/
+test-results/
+playwright-report/
+*.vsb
+*.VSB
+*.elf
+*.bin
+!web/examples/browser-probe.bin
