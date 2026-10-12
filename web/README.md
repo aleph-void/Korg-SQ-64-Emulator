@@ -35,3 +35,9 @@ URLs are relative, so the app also runs below a repository URL path. Remove/chan
 Current browser engines with WebAssembly, BigInt and module workers can run the emulator on Linux, macOS and Windows. The suite has been executed with Chromium on Linux. Physical MIDI access depends on the browser's Web MIDI/SysEx support. The GUI reports unavailable MIDI without preventing emulator use.
 
 The complete board model remains experimental. An emulator pass alone is not a reason to flash candidate firmware. The included probe is original integration-test code, not a release for a real SQ-64.
+
+## Official firmware download
+
+**Boot Korg 2.03** requests the official updater ZIP directly from `cdn.korg.com`, extracts its single VSB in memory, verifies the pinned SHA-256 and package checksums, and starts the emulator using USB transport. No vendor firmware is bundled or uploaded. The update panel also links directly to the official ZIP.
+
+Korg's CDN currently omits browser CORS permission, so the automatic boot request reports an error in a normal browser. There is no proxy or fallback flow. The button can work if the CDN grants CORS access; local file loading remains available independently. The SHA-256 pin is specific to the verified 2.03 image. A changed download must be reviewed before updating the pin.
