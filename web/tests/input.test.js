@@ -40,3 +40,14 @@ test('interactive detents are paced across knobs and stay inside button holds', 
   assert.deepEqual(received.map(e => e.control), ['A1', 'param1', 'param1', 'param1', 'param2', 'A1']);
   for (const event of [{control: 'unknown', delta: 1}, {control: 'tempo', delta: 1.5}, {control: 'tempo', delta: 129}]) assert.throws(() => input.event({type: 'encoder', ...event}), /Invalid/);
 });
+
+test('script input completion includes the final scan interval and all queued edges', () => {
+  const {input, advance} = fixture();
+  assert.equal(input.pending, false);
+  input.event({type: 'encoder', control: 'tempo', delta: 2});
+  assert.equal(input.pending, true);
+  advance(540000);
+  assert.equal(input.pending, true);
+  advance(1080000);
+  assert.equal(input.pending, false);
+});

@@ -27,6 +27,49 @@ These are relative encoders. Their angle shows accumulated input steps, not the 
 
 Selecting a valid firmware image enables **Power on** without starting execution. Loading status and errors appear beside the file picker and in the execution section; a failed replacement keeps the previously loaded image available. The file picker permits selecting the same file again after an error.
 
+## UI scripts
+
+Expand **UI scripts** below the instrument panel. Choose one of five **Example scripts** and click **Load example**, or start a **New script**. Examples cover transport buttons, a SHIFT/pad combination, encoder turns, version-mode startup, and explicit shutdown. They load editable templates without executing them. Adjust startup waits for your firmware and computer.
+
+Use **Append action** to build a sequence, or edit/reorder/remove entries in the actions JSON editor. **Run script** executes the editor contents against the loaded firmware and shows progress. Buttons, encoder positions, firmware display, and LEDs update during execution through the normal emulator input path. Manual controls, debugger changes, image replacement, and updater/backup operations are locked during playback. Disable debugging before running a script.
+
+**The instance keeps running when a script finishes unless the script explicitly powers it off.** A script resumes paused execution; include Power on to reset or restart a powered-off instance. Power on supports normal, version (GLOBAL held), and update (GLOBAL + PATTERN held) modes. Release startup buttons with `button` actions whose `down` is `false`. Power off holds the emulated power button and waits for firmware shutdown; firmware that does not respond produces an error after two minutes. It does not forcibly discard the instance.
+
+**Stop script** cancels remaining actions and leaves the emulator in its current state. An interrupted timed press is released; explicit held buttons remain held until released. A power-off already sent to firmware continues its shutdown. Faults stop playback and are reported without executing the remaining actions.
+
+**Save in browser** stores the named script in IndexedDB. Select it from **Saved scripts** to edit or overwrite it; **New script** starts a separate entry. **Delete saved script** removes the browser copy while retaining its contents in the editor. Storage survives reloads and is shared by standalone and embedded workbenches on the same origin. Firmware and emulated flash are not stored with scripts. Clearing browser site data removes the library. **Export script** downloads a JSON copy, and **Import script** validates a file and opens it as an unsaved draft. Neither import nor selecting a saved script runs it. Import/export remain available when browser storage is unavailable.
+
+The portable format is versioned JSON data, not JavaScript. For example:
+
+```json
+{
+  "format": "sq64-ui-script",
+  "version": 1,
+  "name": "Play and stop",
+  "actions": [
+    { "type": "power-on", "mode": "normal" },
+    { "type": "wait", "ms": 60000 },
+    { "type": "press", "control": "play", "ms": 150 },
+    { "type": "wait", "ms": 2000 },
+    { "type": "press", "control": "stop", "ms": 150 }
+  ]
+}
+```
+
+| Action | Fields | Behavior |
+| --- | --- | --- |
+| `power-on` | `mode`: `normal`, `version`, or `update` | Reset and start with the selected startup buttons held. |
+| `power-off` | None | Request shutdown and wait for firmware to release power. |
+| `wait` | `ms` | Wait in browser time while firmware continues running. |
+| `press` | `control`, `ms` | Press a button/pad, wait, and release. |
+| `button` | `control`, `down`: boolean | Hold or release a button/pad; useful for combinations. |
+| `encoder` | `control`, `delta`: signed integer | Turn an encoder by 1–128 steps in either direction. |
+| `midi` | `data`: array of byte integers | Inject 1–1024 MIDI bytes via the configured emulator route. |
+
+Controls use the panel names: `tap`, `record`, `stop`, `play`, `control`, `project`, `global`, `pattern`, `gate`, `pitch`, `mod`, `loop`, `shift`, `bar1`–`bar4`, `trackA`–`trackD`, and pads `A1`–`D16`. Encoders are `tempo`, `swing`, and `param1`–`param4`. Durations are integer milliseconds from 0 to 3,600,000. Files are limited to 1 MiB, 10,000 actions, and a 120-character name; all actions are validated before execution. Unknown fields and unsupported versions are rejected.
+
+Button and encoder actions wait for queued input and its virtual scan/debounce interval before the next action. Timed presses include that minimum interval in addition to their browser-time duration. Host speed and background-tab throttling affect timing; scripts are not a deterministic virtual-time replay format. Existing **Save input recording** / **Replay recording** remain separate tick-based diagnostic tools.
+
 ## Debugging firmware
 
 **Validate Image** runs the pinned SQ-64 spec v0.2.0 `image` profile against the exact file loaded into the emulator. All seven requirements appear with pass/fail/not-run results, the file hash and the spec revision. **Save validation report** exports JSON; execution and debug reports also include the last validation. It works while running, paused, stopped at a breakpoint, or faulted without changing CPU/debugger state. Updater and backup transaction locks disable the action.

@@ -20,8 +20,9 @@ const firmware = shallowRef(null),
   archive = shallowRef(null);
 const busy = ref(false),
   awaitingCompletion = ref(false),
+  scripting = ref(false),
   connected = ref(false);
-const locked = computed(() => busy.value || awaitingCompletion.value);
+const locked = computed(() => busy.value || awaitingCompletion.value || scripting.value);
 const tab = ref('backup'),
   channel = ref(0),
   scope = ref('all');
@@ -44,7 +45,9 @@ const fileInfo = ref('No firmware selected'),
 const workbenchOpen = ref(false),
   workbench = ref(null),
   logElement = ref(null);
-watch(locked, (value) => emulator.setLocked(value), { flush: 'sync' });
+watch(() => busy.value || awaitingCompletion.value, (value) => emulator.setLocked(value), { flush: 'sync' });
+function emulatorState(event) { scripting.value = !!event.detail.scripting; }
+emulator.addEventListener('state', emulatorState);
 watch(logText, async () => {
   await nextTick();
   if (logElement.value) logElement.value.scrollTop = logElement.value.scrollHeight;
@@ -291,6 +294,7 @@ onBeforeUnmount(() => {
   window.removeEventListener('beforeunload', beforeUnload);
   access?.removeEventListener('statechange', portsChanged);
   emulator.removeEventListener('fault', emulatorFault);
+  emulator.removeEventListener('state', emulatorState);
   closeSession();
   emulator.close();
   if (window.sq64Emulator === emulator) delete window.sq64Emulator;

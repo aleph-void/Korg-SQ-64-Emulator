@@ -6,6 +6,8 @@ import { save } from '../src/download.js';
 import DebugPanel from './DebugPanel.vue';
 import ValidationPanel from './ValidationPanel.vue';
 import InstrumentPanel from './InstrumentPanel.vue';
+import ScriptPanel from './ScriptPanel.vue';
+import { runScript } from './scripts.js';
 
 const sharedDevice = window.parent !== window && window.parent.sq64Emulator;
 const device = sharedDevice || new BrowserEmulator();
@@ -18,9 +20,11 @@ const route = ref('usb'),
   loading = ref(false);
 const imageName = ref(''),
   loadError = ref('');
-const controlsDisabled = computed(() => !state.value.loaded || !!state.value.terminated || !!state.value.locked || loading.value);
+const controlsDisabled = computed(() => !state.value.loaded || !!state.value.terminated || !!state.value.locked || !!state.value.scripting || loading.value);
 const interactionDisabled = computed(() => controlsDisabled.value || !!state.value.report?.board.poweredOff);
-const fileDisabled = computed(() => !!state.value.terminated || !!state.value.locked || loading.value);
+const fileDisabled = computed(() => !!state.value.terminated || !!state.value.locked || !!state.value.scripting || loading.value);
+const controlState = computed(() => ({ ...state.value, locked: state.value.locked || state.value.scripting || loading.value }));
+const instrumentState = computed(() => ({ ...panelState.value, locked: controlState.value.locked }));
 const report = computed(() => state.value.report);
 const status = computed(() => {
   if (state.value.terminated) return state.value.terminated.message;
@@ -66,12 +70,27 @@ function update(snapshot) {
   }
   queueRender(state.value);
 }
-async function api(action, data = {}) {
+async function api(action, data = {}, scripted = false) {
   if (device.locked && !['state', 'recording'].includes(action))
     throw Error('Wait for the current updater or backup operation to finish');
+  if (device.scripting && !scripted && !['state', 'recording'].includes(action))
+    throw Error('Stop the script before using manual controls');
   const result = await device.request(action, data);
-  if (result && typeof result.loaded === 'boolean') update({ ...result, locked: device.locked });
+  if (result && typeof result.loaded === 'boolean') {
+    const snapshot = { ...result, locked: device.locked, scripting: device.scripting };
+    update(snapshot);
+    if (['load', 'reset'].includes(action)) resetKey.value++;
+    return snapshot;
+  }
   return result;
+}
+async function playScript(script, onProgress, signal) {
+  if (controlsDisabled.value) throw Error('Load firmware and wait for the current operation to finish');
+  error.value = '';
+  device.setScripting(true);
+  resetKey.value++;
+  try { return await runScript(script, { request: (action, data) => api(action, data, true), onProgress, signal }); }
+  finally { device.setScripting(false); }
 }
 async function act(task) {
   error.value = '';
@@ -83,7 +102,6 @@ async function act(task) {
 }
 async function load(bytes) {
   await api('load', { bytes, transport: route.value });
-  resetKey.value++;
 }
 async function loadFile(event) {
   const file = event.target.files[0];
@@ -124,7 +142,6 @@ async function loadProbe() {
 function reset(mode) {
   return act(async () => {
     await api('reset', { mode });
-    resetKey.value++;
   });
 }
 function releaseStartup() {
@@ -251,13 +268,14 @@ onBeforeUnmount(() => {
         ><button id="release" :disabled="interactionDisabled" @click="releaseStartup">Release startup buttons</button>
       </div>
     </div>
-    <ValidationPanel :state="state" :request="api" />
+    <ValidationPanel :state="controlState" :request="api" />
     <InstrumentPanel
-      :state="panelState"
+      :state="instrumentState"
       :reset-key="resetKey"
       @input="act(() => api('event', $event))"
       @error="error = $event"
     />
+    <ScriptPanel :state="state" :loading="loading" :play="playScript" />
     <div class="details">
       <section>
         <p class="eyebrow">EXECUTION</p>
@@ -302,7 +320,7 @@ onBeforeUnmount(() => {
         <pre id="midi-log">{{ midiLog }}</pre>
       </section>
     </div>
-    <DebugPanel :state="state" :request="api" />
+    <DebugPanel :state="controlState" :request="api" />
     <footer>
       <span>Aleph Void · Independent tools. Not affiliated with Korg.</span
       ><span>Linux · macOS · Windows / no vendor firmware bundled</span

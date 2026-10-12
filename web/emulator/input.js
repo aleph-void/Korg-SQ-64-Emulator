@@ -5,6 +5,10 @@ import {BUTTONS, PADS, ENCODERS} from './panel.js';
 // replay remains deterministic. Raw Machine events are deliberately unchanged.
 export class InteractiveInputs {
   constructor(machine) { this.machine = machine; this.edges = new Map(); this.cursor = 0; this.nextEncoderTick = 0; }
+  get pending() {
+    return this.machine.board.ticks < Math.max(this.cursor, this.nextEncoderTick) ||
+      this.machine.eventIndex < this.machine.events.length;
+  }
   event(event) {
     const m = this.machine, dwell = Math.ceil(216000000 * 0.04 / m.board.cyclesPerInstruction);
     if (event.type === 'encoder') {
