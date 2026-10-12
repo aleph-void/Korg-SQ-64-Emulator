@@ -7,4 +7,4 @@
 
 .safety-stop{margin:20px 0;padding:20px;border:2px solid #f87171;border-radius:8px;background:#301419}.safety-stop h2,.safety-stop p{color:#fecaca}.validation tr[data-unsafe=true] td:nth-child(2){color:#f87171;font-weight:700}
 
-[data-control=shift]{position:relative}.shift-tip{position:absolute;z-index:10;bottom:calc(100% + 10px);right:0;width:230px;padding:10px 12px;border:1px solid #a78bfa;border-radius:6px;background:#1c1630;color:#ede9fe;font:12px/1.5 Inter,system-ui,sans-serif;text-align:left;pointer-events:none;box-shadow:0 4px 20px #0008}
+[data-control]{position:relative}.latch-tip{position:absolute;z-index:10;bottom:calc(100% + 10px);right:0;width:230px;padding:10px 12px;border:1px solid #a78bfa;border-radius:6px;background:#1c1630;color:#ede9fe;font:12px/1.5 Inter,system-ui,sans-serif;text-align:left;pointer-events:none;box-shadow:0 4px 20px #0008}

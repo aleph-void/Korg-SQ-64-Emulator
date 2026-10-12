@@ -156,7 +156,7 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', fullscree
       />
     </div>
     <div class="panel-foot">
-      <span>Double-click SHIFT to latch or release it. Hold other buttons with a pointer or keyboard; Shift-click latches them.</span>
+      <span>Double-click any pad or button to hold or release it; pressing Enter/Space twice also works. Other than SHIFT, single clicks and pointer/keyboard holds work as usual; Shift-click also latches them.</span>
       <span id="encoder-help"
         >Relative encoders: drag vertically, scroll, or use ← / →. Shift gives finer drag/scroll. The firmware display
         shows the value; the knob angle has no zero or reset position.</span

@@ -16,34 +16,35 @@ const act = task => Promise.resolve().then(task).catch(error => { $('status').te
 function button(control, label, parent, pad = false) {
   const b = document.createElement('button'); b.className = pad ? 'pad' : 'control'; b.textContent = label; b.dataset.control = control;
   b.setAttribute('aria-label', pad ? `Pad ${control}` : label); b.setAttribute('aria-pressed', 'false'); b.disabled = true;
+  b.dataset.latched = 'false'; b.title = `Double-click ${pad ? `Pad ${control}` : label}, or press Enter/Space twice, to latch or release it.`;
   let presses = [], tipTimer, lastKeyPress = -Infinity;
   const clearTip = () => { clearTimeout(tipTimer); b.querySelector('[role=tooltip]')?.remove(); b.removeAttribute('aria-describedby'); presses = []; };
   b.addEventListener('panel-reset', () => { clearTip(); lastKeyPress = -Infinity; b.dataset.latched = 'false'; held.delete(control); });
   const notePress = () => {
-    if (control !== 'shift') return;
     const now = performance.now(); presses = presses.filter(time => now - time <= 2000); presses.push(now);
     if (presses.length <= 3) return;
     let tip = b.querySelector('[role=tooltip]');
     if (!tip) {
-      tip = document.createElement('span'); tip.id = 'shift-latch-tip'; tip.className = 'shift-tip'; tip.setAttribute('role', 'tooltip');
-      tip.textContent = 'Double-click SHIFT to toggle its latched state.'; b.append(tip); b.setAttribute('aria-describedby', tip.id);
+      tip = document.createElement('span'); tip.id = `${control}-latch-tip`; tip.className = 'latch-tip'; tip.setAttribute('role', 'tooltip');
+      tip.textContent = `Double-click ${pad ? `Pad ${control}` : label} to toggle its latched state.`; b.append(tip); b.setAttribute('aria-describedby', tip.id);
     }
     clearTimeout(tipTimer); tipTimer = setTimeout(clearTip, 6000);
   };
   const send = down => { if (down) held.add(control); else held.delete(control); b.setAttribute('aria-pressed', String(down)); act(() => api('event', {type: 'button', control, down})); };
   const toggle = () => { lastKeyPress = -Infinity; b.dataset.latched = b.dataset.latched === 'true' ? 'false' : 'true'; send(b.dataset.latched === 'true'); };
   b.addEventListener('pointerdown', e => { e.preventDefault(); b.setPointerCapture(e.pointerId); notePress(); if (control === 'shift') return; if (e.shiftKey) toggle(); else if (b.dataset.latched !== 'true') send(true); });
-  b.addEventListener('dblclick', e => { if (control === 'shift' && !b.disabled) { e.preventDefault(); toggle(); } });
+  b.addEventListener('dblclick', e => { if (!b.disabled) { e.preventDefault(); toggle(); } });
   const release = () => { if (b.dataset.latched !== 'true' && held.has(control)) send(false); };
   b.addEventListener('pointerup', release); b.addEventListener('pointercancel', release); b.addEventListener('lostpointercapture', release);
   b.addEventListener('keydown', e => {
     if (e.key === 'Escape') clearTip();
     if (![' ', 'Enter'].includes(e.key) || e.repeat || b.disabled) return;
     e.preventDefault(); notePress();
-    if (control === 'shift') { const now = performance.now(); if (now - lastKeyPress <= 500) toggle(); else lastKeyPress = now; }
-    else if (b.dataset.latched !== 'true') send(true);
+    const now = performance.now();
+    if (now - lastKeyPress <= 500) toggle();
+    else { lastKeyPress = now; if (control !== 'shift' && b.dataset.latched !== 'true') send(true); }
   });
-  b.addEventListener('keyup', e => { if ([' ', 'Enter'].includes(e.key)) { e.preventDefault(); if (control !== 'shift') release(); } });
+  b.addEventListener('keyup', e => { if ([' ', 'Enter'].includes(e.key)) { e.preventDefault(); release(); } });
   $(parent).append(b);
 }
 function knob(name, parent) {

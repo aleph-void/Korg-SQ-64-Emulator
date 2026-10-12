@@ -26,7 +26,7 @@ The encoder bit pairs start at tempo:4, swing:6, param1:12, param2:14, param3:8 
 
 Direction reversals retain fractional drag and wheel movement, so reversing a gesture unwinds the same detents rather than discarding its partial steps. Firmware still determines parameter ranges and value scaling.
 
-The panel SHIFT button latches or releases on double-click (or two Enter/Space presses). Single clicks send no SHIFT input; each double-click sends only the final held/released transition, avoiding extra taps that firmware could interpret as its own latch gesture. Four presses within a rolling two-second window show a tooltip explaining the double-click gesture. Shift-click continues to latch other buttons. Reset clears the browser panel's latch state.
+Every panel pad and button latches or releases on double-click (or two Enter/Space presses within 500 ms). Other than SHIFT, single clicks still send normal taps and pointer/keyboard holds remain momentary; Shift-click also toggles their latch. Single clicks or keys leave a latched control held. Single clicks send no SHIFT input; each SHIFT double-click sends only the final held/released transition, avoiding extra taps that firmware could interpret as its own latch gesture. Four presses on a control within a rolling two-second window show its tooltip explaining the double-click gesture. Reset clears all panel latch states.
 
 ## Serial scans
 

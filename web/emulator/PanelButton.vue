@@ -16,7 +16,6 @@ const pressed = ref(props.down),
 let held = false, presses = [], tipTimer, lastKeyPress = -Infinity;
 function clearTip() { clearTimeout(tipTimer); showTip.value = false; presses = []; }
 function notePress() {
-  if (props.control !== 'shift') return;
   const now = performance.now();
   presses = presses.filter(time => now - time <= 2000);
   presses.push(now);
@@ -63,7 +62,7 @@ function press(event) {
   } else if (!latched.value) send(true);
 }
 function doubleClick(event) {
-  if (props.disabled || props.control !== 'shift') return;
+  if (props.disabled) return;
   event.preventDefault();
   lastKeyPress = -Infinity;
   latched.value = !latched.value;
@@ -77,14 +76,15 @@ function key(event, down) {
   if (props.disabled || ![' ', 'Enter'].includes(event.key)) return;
   event.preventDefault();
   if (!event.repeat) {
-    if (props.control === 'shift') {
-      if (down) {
-        notePress();
-        const now = performance.now();
-        if (now - lastKeyPress <= 500) doubleClick(event);
-        else lastKeyPress = now;
+    if (down) {
+      notePress();
+      const now = performance.now();
+      if (now - lastKeyPress <= 500) doubleClick(event);
+      else {
+        lastKeyPress = now;
+        if (props.control !== 'shift' && !latched.value) send(true);
       }
-    } else if (down) { if (!latched.value) send(true); }
+    }
     else release();
   }
 }
@@ -98,8 +98,8 @@ function key(event, down) {
     :aria-label="pad ? `Pad ${control}` : label"
     :aria-pressed="pressed"
     :data-latched="latched"
-    :aria-describedby="showTip ? 'shift-latch-tip' : undefined"
-    :title="control === 'shift' ? 'Double-click SHIFT, or press Enter twice, to latch or release it.' : undefined"
+    :aria-describedby="showTip ? `${control}-latch-tip` : undefined"
+    :title="`Double-click ${pad ? `Pad ${control}` : label}, or press Enter/Space twice, to latch or release it.`"
     :data-led="level"
     :aria-description="level > 0 ? 'Firmware indicator lit' : 'Firmware indicator off'"
     :style="{ '--led-intensity': level / 255 }"
@@ -112,6 +112,6 @@ function key(event, down) {
     @keyup="key($event, false)"
   >
     {{ label }}
-    <span v-if="showTip" id="shift-latch-tip" class="shift-tip" role="tooltip">Double-click SHIFT to toggle its latched state.</span>
+    <span v-if="showTip" :id="`${control}-latch-tip`" class="latch-tip" role="tooltip">Double-click {{ pad ? `Pad ${control}` : label }} to toggle its latched state.</span>
   </button>
 </template>
