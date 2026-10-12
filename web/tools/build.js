@@ -1,4 +1,4 @@
-import {cp, mkdir, rm, readdir} from 'node:fs/promises';
+import {cp, mkdir, rm, readdir, readFile, writeFile} from 'node:fs/promises';
 import {resolve} from 'node:path';
 import {fileURLToPath} from 'node:url';
 const root = fileURLToPath(new URL('../', import.meta.url));
@@ -11,4 +11,7 @@ if (args.length) {
 } else await rm(target, {recursive: true, force: true});
 await mkdir(target, {recursive: true});
 for (const path of ['index.html', 'style.css', 'src', 'assets', 'emulator', 'vendor', 'examples', 'CNAME', '_headers', '.nojekyll', 'LICENSE', 'NOTICE.txt']) await cp(resolve(root, path), resolve(target, path), {recursive: true});
-console.log(`Static web site exported to ${target}`);
+const version = (await readFile(resolve(root, '../VERSION'), 'utf8')).trim();
+const index = resolve(target, 'index.html');
+await writeFile(index, (await readFile(index, 'utf8')).replaceAll('{{VERSION}}', version));
+console.log(`Static web site exported to ${target} (version ${version})`);
