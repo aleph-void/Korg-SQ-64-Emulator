@@ -44,3 +44,24 @@ test('disabled pending IRQs remain latched without repeated priority scans', () 
   assert.equal(scans, 0); assert.equal(irq.pending, 1n << 67n);
   irq.enabled |= 1n << 67n; irq.instruction(0x200000); assert.equal(scans, 1);
 });
+
+test('deferred timers preserve overflow instructions across counter, divisor and enable changes', () => {
+  const b = board(), pending = [], expected = [], timers = [0x40000000, 0x40000400, 0x40001400], irqs = [28,29,55];
+  b.irq = {pend: irq => pending.push([b.ticks,irq])};
+  const ref = timers.map(() => ({enabled:false, fraction:0, count:0, divisor:1, reload:65536, status:0, interrupt:0}));
+  const write = (i, offset, value) => {
+    const address = timers[i] + offset; b.write(address,4,value); b.put(address,value);
+    const t=ref[i]; if(offset===0)t.enabled=!!(value&1); if(offset===0x24)t.count=value; if(offset===0x28)t.divisor=value+1;
+    if(offset===0x2c)t.reload=value===0?65536:value+1; if(offset===0x10)t.status=value; if(offset===12)t.interrupt=value;
+  };
+  timers.forEach((_,i)=>{write(i,0x28,i+1);write(i,0x2c,11+i*7);write(i,12,1);write(i,0,1);});
+  let seed=0x641203;
+  for(let tick=1;tick<=3000;tick++) {
+    for(let i=0;i<ref.length;i++){const t=ref[i];if(!t.enabled)continue;t.fraction+=16;const increment=Math.floor(t.fraction/t.divisor);t.fraction%=t.divisor;
+      if(increment){t.count+=increment;if(t.count>=t.reload){if(t.interrupt&1&&!(t.status&1))expected.push([tick,irqs[i]]);t.status|=1;}t.count%=t.reload;}}
+    b.advance(); assert.deepEqual(pending,expected,`IRQ schedule at instruction ${tick}`);
+    if(tick%13===0){for(let i=0;i<timers.length;i++){b.read(timers[i]+0x24,4);assert.equal(b.get(timers[i]+0x24),ref[i].count);}}
+    if(tick%17===0){seed^=seed<<13;seed^=seed>>>17;seed^=seed<<5;const i=(seed>>>0)%3;write(i,0x10,0);
+      switch((seed>>>8)%4){case 0:write(i,0x28,(seed>>>16)%11);break;case 1:write(i,0x2c,(seed>>>16)%37);break;case 2:write(i,0x24,(seed>>>16)%43);break;case 3:write(i,0,ref[i].enabled?0:1);}}
+  }
+});

@@ -1,20 +1,34 @@
 import {Board} from './board.js';
 import {Interrupts} from './interrupts.js';
 export class Memory {
-  constructor(module, engine) { this.u = module; this.e = engine; this.handle = module.getValue(engine.handle_ptr, '*'); this.regions = []; }
+  constructor(module, engine) { this.u = module; this.e = engine; this.handle = module.getValue(engine.handle_ptr, '*'); this.regions = []; this.pages = new Map(); }
   map(base, size) {
     const ptr = this.u._malloc(size); if (!ptr) throw Error('Emulator memory allocation failed');
     const error = this.u._uc_mem_map_ptr(this.handle, BigInt(base), BigInt(size), 7, ptr);
     if (error) { this.u._free(ptr); throw Error(`Cannot map emulator memory: ${error}`); }
-    this.regions.push({base, size, ptr});
-    for (let i = 0; i < size; i += 4) this.u.setValue(ptr + i, 0, 'i32');
+    const region = {base, size, ptr}; this.regions.push(region);
+    for (let page = base >>> 16; page <= (base + size - 1) >>> 16; page++) this.pages.set(page, region);
+    this.u.HEAPU8.fill(0, ptr, ptr + size);
   }
-  pointer(a, n) { const r = this.regions.find(r => a >= r.base && a + n <= r.base + r.size); if (!r) throw Error(`Unmapped memory 0x${a.toString(16)}`); return r.ptr + a - r.base; }
-  get(a, n = 4) { const p = this.pointer(a, n); if (![1, 2, 4].includes(n)) throw Error('Unsupported memory width'); if (a % n) { let v = 0; for (let i = 0; i < n; i++) v |= (this.u.getValue(p + i, 'i8') & 255) << (i * 8); return v >>> 0; } const v = this.u.getValue(p, 'i' + n * 8) >>> 0; return n === 4 ? v : v & ((1 << n * 8) - 1); }
-  put(a, v, n = 4) { const p = this.pointer(a, n); if (a % n) for (let i = 0; i < n; i++) this.u.setValue(p + i, v >>> (i * 8) & 255, 'i8'); else this.u.setValue(p, v, 'i' + n * 8); }
-  read(a, n) { const p = this.pointer(a, n), result = new Uint8Array(n); for (let i = 0; i < n; i++) result[i] = this.u.getValue(p + i, 'i8'); return result; }
-  write(a, data) { const p = this.pointer(a, data.length); this.u.writeArrayToMemory(data, p); }
-  close() { for (const r of this.regions) this.u._free(r.ptr); this.regions = []; }
+  pointer(a, n) { const r = this.pages.get(a >>> 16); if (!r || a < r.base || a + n > r.base + r.size) throw Error(`Unmapped memory 0x${a.toString(16)}`); return r.ptr + a - r.base; }
+  get(a, n = 4) {
+    const p = this.pointer(a, n);
+    if (n === 1) return this.u.HEAPU8[p];
+    if (n === 2 && !(p & 1)) return this.u.HEAPU16[p >>> 1];
+    if (n === 4 && !(p & 3)) return this.u.HEAPU32[p >>> 2];
+    if (n !== 2 && n !== 4) throw Error('Unsupported memory width');
+    let value = 0; for (let i = 0; i < n; i++) value |= this.u.HEAPU8[p + i] << (i * 8); return value >>> 0;
+  }
+  put(a, v, n = 4) {
+    const p = this.pointer(a, n);
+    if (n === 1) this.u.HEAPU8[p] = v;
+    else if (n === 2 && !(p & 1)) this.u.HEAPU16[p >>> 1] = v;
+    else if (n === 4 && !(p & 3)) this.u.HEAPU32[p >>> 2] = v;
+    else { if (n !== 2 && n !== 4) throw Error('Unsupported memory width'); for (let i = 0; i < n; i++) this.u.HEAPU8[p + i] = v >>> (i * 8); }
+  }
+  read(a, n) { const p = this.pointer(a, n); return this.u.HEAPU8.slice(p, p + n); }
+  write(a, data) { this.u.HEAPU8.set(data, this.pointer(a, data.length)); }
+  close() { for (const r of this.regions) this.u._free(r.ptr); this.regions = []; this.pages.clear(); }
 }
 export class Machine {
   constructor(module, image, options = {}) {

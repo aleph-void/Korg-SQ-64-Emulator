@@ -39,3 +39,7 @@ The complete board model remains experimental. An emulator pass alone is not a r
 ## Official firmware download
 
 The update panel and the emulator page link directly to Korg's official updater ZIP and download page. Download the ZIP in the browser, extract the single `.VSB`, and load it as a local file. The app never fetches from `cdn.korg.com` itself: the CDN omits browser CORS permission, so an in-app download is not possible, and there is no proxy or fallback flow. No vendor firmware is bundled or uploaded.
+
+## Startup speed
+
+Load the extracted firmware in the **Browser emulator** section, then press **Power on**. The updater's file selector is separate. Startup runs real firmware initialization; its first display frame and USB readiness occur at different times. A blank initial display does not mean execution has stopped. The workbench shows startup status and an increasing instruction count. On the test host, stock/custom cold starts showed their first frame after about four seconds and configured USB after approximately one minute.

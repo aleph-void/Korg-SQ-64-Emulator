@@ -3,6 +3,7 @@ import {Panel} from './panel.js';
 import {UsbDevice} from './usb.js';
 import {MidiMessages} from './midi.js';
 export const TIMERS = new Map([[0x40000000, 28], [0x40000400, 29], [0x40000800, 30], [0x40000c00, 50], [0x40001000, 54], [0x40001400, 55], [0x40011400, 24]]);
+const KNOWN_WINDOWS = [...TIMERS.keys()].map(a => [a, 0x80]).concat([[0x40003800, 0x800], [0x40004400, 0x800], [0x40007000, 0x800], [0x40010000, 0x100], [0x40012000, 0x400], [0x40013000, 0x5000], [0x40020000, 0x2400], [0x40023800, 0x800], [0x40026000, 0x800], [0xe000e000, 0x2000]]);
 export class Board {
   constructor(memory, image, {mapping = {}, onMidi = () => {}, transport = 'usb', cyclesPerInstruction = 16} = {}) {
     if (!Number.isInteger(cyclesPerInstruction) || cyclesPerInstruction < 1 || cyclesPerInstruction > 64) throw Error('Invalid virtual instruction timing');
@@ -10,6 +11,7 @@ export class Board {
     this.ticks = 0; this.cycles = 0; this.cyclesPerInstruction = cyclesPerInstruction; this.timers = new Set(); this.fraction = new Map(); this.dmaReload = new Map();
     this.flashRx = []; this.panelRx = []; this.scanPosition = 0; this.uartRx = new Map([[0x40004400, []], [0x40004800, []]]);
     this.powerButton = false; this.poweredOff = false;
+    this.timerCycle = 0; this.nextTimerCycle = Infinity;
     this.flashKey = 0; this.flashControl = 0x80000000; this.adc = 0xc000; this.lastPanelDma = 0; this.trace = []; this.midiOut = [];
     this.onMidi = onMidi; this.transport = transport; this.parsers = new Map();
     this.approximations = new Set(['instruction-time-clock', 'panel-electrical-timing', 'led-colorimetry', 'display-controller-commands', 'register-only-config-blocks', 'instantaneous-flash-completion', 'usb-fs-transaction-time']);
@@ -20,17 +22,30 @@ export class Board {
   record(value) { this.trace.push(value); if (this.trace.length > 1024) this.trace.shift(); }
   advance() {
     this.ticks++; this.cycles += this.cyclesPerInstruction;
-    for (const base of this.timers) {
-      const fraction = (this.fraction.get(base) || 0) + this.cyclesPerInstruction, period = this.get(base + 0x28) + 1, increment = Math.floor(fraction / period);
-      this.fraction.set(base, fraction % period);
-      if (!increment) continue;
-      let reload = this.get(base + 0x2c) + 1; if (reload === 1) reload = 65536;
-      const count = this.get(base + 0x24) + increment;
-      if (count >= reload) { const s = this.get(base + 0x10); this.put(base + 0x10, s | 1); if (this.get(base + 12) & 1 && !(s & 1)) this.pend(TIMERS.get(base)); }
-      this.put(base + 0x24, count % reload);
-    }
+    if (this.cycles >= this.nextTimerCycle) this.syncTimers();
     if (this.ticks % 128 === 0) { this.completeDma(); this.usb.service(); }
   }
+  syncTimers() {
+    // Advance only at an overflow or an observed timer-register access. IRQs
+    // still become pending on the same instruction as in the scalar model.
+    const elapsed = this.cycles - this.timerCycle; this.timerCycle = this.cycles;
+    this.nextTimerCycle = Infinity;
+    for (const base of this.timers) {
+      const period = this.get(base + 0x28) + 1;
+      const fraction = (this.fraction.get(base) || 0) + elapsed;
+      const increment = Math.floor(fraction / period), remainder = fraction % period;
+      this.fraction.set(base, remainder);
+      let reload = this.get(base + 0x2c) + 1; if (reload === 1) reload = 65536;
+      let count = this.get(base + 0x24);
+      if (increment) {
+        count += increment;
+        if (count >= reload) { const status = this.get(base + 0x10); this.put(base + 0x10, status | 1); if (this.get(base + 12) & 1 && !(status & 1)) this.pend(TIMERS.get(base)); }
+        count %= reload; this.put(base + 0x24, count);
+      }
+      this.nextTimerCycle = Math.min(this.nextTimerCycle, this.cycles + Math.max(1, (reload - count) * period - remainder));
+    }
+  }
+  timerAddress(a) { return a >= 0x40000000 && a < 0x40001480 && (a & 0x3ff) < 0x80 || a >= 0x40011400 && a < 0x40011480; }
   emitMidi(byte, port, cable = 0) {
     byte &= 255; this.midiOut.push({tick: this.ticks, byte, port, cable}); if (this.midiOut.length > 256) this.midiOut.shift();
     if (this.transport === 'usb' ? port !== 'usb' || cable !== 1 : port !== 0x40004800) return;
@@ -44,10 +59,10 @@ export class Board {
     queue.push(...data); if (this.get(port + 12) & 32) this.pend(port === 0x40004800 ? 39 : 38);
   }
   known(a) {
-    const windows = [...TIMERS.keys()].map(a => [a, 0x80]).concat([[0x40003800, 0x800], [0x40004400, 0x800], [0x40007000, 0x800], [0x40010000, 0x100], [0x40012000, 0x400], [0x40013000, 0x5000], [0x40020000, 0x2400], [0x40023800, 0x800], [0x40026000, 0x800], [0xe000e000, 0x2000]]);
-    return windows.some(([b, n]) => a >= b && a < b + n);
+    return KNOWN_WINDOWS.some(([b, n]) => a >= b && a < b + n);
   }
   write(a, n, v) {
+    if (this.timerAddress(a)) { this.syncTimers(); this.nextTimerCycle = this.cycles + this.cyclesPerInstruction; }
     if (TIMERS.has(a)) { if (v & 1) this.timers.add(a); else this.timers.delete(a); }
     if (a >= 0x50000000 && a < 0x50006000) { if (n !== 4) throw Error('USB requires word access'); this.usb.write(a - 0x50000000, v); return; }
     if (a >= 0x8000000 && a < 0x8010000) {
@@ -76,6 +91,7 @@ export class Board {
     }
   }
   read(a, n) {
+    if (this.timerAddress(a)) this.syncTimers();
     if (a >= 0x50000000 && a < 0x50006000) { if (n !== 4) throw Error('USB word access required'); this.put(a, this.usb.read(a - 0x50000000)); return; }
     if (!this.known(a)) throw Error(`Unmodeled peripheral read at 0x${a.toString(16)}`);
     if (a === 0x40020810) this.put(a, this.get(a) & ~8192 | (this.powerButton ? 0 : 8192)); // PC13 active-low power button

@@ -45,7 +45,16 @@ self.onmessage = ({data: message}) => {
 };
 function pump() {
   try {
-    if (running && machine) { machine.run(10000); if (machine.board.poweredOff) running = false; if (machine.error) { running = false; postMessage({type: 'fault', error: machine.error}); } }
+    if (running && machine) {
+      // Keep work slices short enough for input/pause messages, while avoiding
+      // a browser timer wake-up after every small batch of CPU instructions.
+      const deadline = performance.now() + 12;
+      do {
+        machine.run(10000);
+        if (machine.board.poweredOff) running = false;
+        if (machine.error) { running = false; postMessage({type: 'fault', error: machine.error}); }
+      } while (running && performance.now() < deadline);
+    }
     if (machine && performance.now() - lastState >= 250) notify();
   } catch (error) { running = false; postMessage({type: 'fault', error: String(error.message || error)}); }
   setTimeout(pump, running ? 0 : 25);

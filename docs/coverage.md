@@ -25,7 +25,7 @@ A separate populated-data check imported a private 95-record archive through the
 
 Restore acknowledgement alone is insufficient. An abrupt reset lost catalog/current-workspace metadata in the private checks, even though saved project payloads remained in SPI. Use normal power-button shutdown before testing persistence. Power on, Version and Update reset immediately. Closing/reloading the page discards the in-memory emulator session; download a backup to retain data outside it.
 
-Public regressions contain only independently authored fixtures: 38 core tests and nine Chrome tests cover protocol handling, malformed data, transport failures, panel scans, USB registers, NOR capacity, CPU/IRQ execution, firmware-driven power-off, GUI operations, mobile layout, and branch-ready static export. The original ARM integration probe uses modeled DIN registers, synthetic backup data, and update staging; it does not itself establish installed firmware or real-device compatibility. The private supplied-image tests establish the bounded results above.
+Public regressions contain only independently authored fixtures: 39 core tests and 10 Chrome tests cover protocol handling, malformed data, transport failures, panel scans, USB registers, NOR capacity, CPU/IRQ execution, firmware-driven power-off, GUI operations, mobile layout, and branch-ready static export. The original ARM integration probe uses modeled DIN registers, synthetic backup data, and update staging; it does not itself establish installed firmware or real-device compatibility. The private supplied-image tests establish the bounded results above.
 
 ## Native engine
 
@@ -37,3 +37,9 @@ The Python backend remains a separate, less complete model; the browser compatib
 2. Compare USB descriptors, FIFO traffic and endpoint timing against hardware.
 3. Establish reserved storage ownership and calibrated CV/gate/sync behavior before hardware conformance claims.
 4. Expand original diagnostic firmware and supplied-candidate tests for faults, scheduling, edited patterns and installation interruption.
+
+## Browser execution performance
+
+Memory access uses current WebAssembly heap views with mapped-region bounds checks. Timer counters advance lazily at register accesses and scheduled overflows; interrupt delivery remains at the same instruction boundary. Panel wiring tables are prepared once. The worker runs short batches within a 12 ms time slice before yielding for input. These changes do not increase virtual time per instruction or skip firmware code.
+
+Private stock/custom comparisons after three million instructions matched all mapped memory, registers, SPI, IRQ traces, display, LEDs and MIDI. Normal-mode samples were 5.5–6.3 times faster, and update-mode samples 2.6–2.7 times faster, on the test host. Optimized Chrome cold boots reached the first frame at about four seconds and USB configuration at 56–57 seconds. Performance depends on the host and firmware; the model is still slower than the physical device.

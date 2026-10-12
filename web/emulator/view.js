@@ -43,7 +43,10 @@ function render(state) {
   document.querySelectorAll('[data-control], [data-encoder]').forEach(b => { b.disabled = !state.loaded || state.locked; });
   if (!state.loaded) return;
   const r = state.report; $('pc').textContent = `0x${r.pc.toString(16).padStart(8, '0')}`; $('ticks').textContent = r.board.ticks.toLocaleString(); $('irq').textContent = String(r.interrupts.delivered);
-  $('status').textContent = r.error || (r.board.poweredOff ? 'Powered off · firmware finished shutdown' : `${state.running ? 'Running' : 'Paused'} · ${state.mode} startup`);
+  $('status').textContent = r.error || (r.board.poweredOff ? 'Powered off · firmware finished shutdown'
+    : !state.running && r.board.ticks === 0 ? 'Firmware loaded · press Power on to start'
+    : state.running && state.panel.displayFrames === 0 ? 'Running · starting firmware; waiting for the first display frame'
+    : `${state.running ? 'Running' : 'Paused'} · ${state.mode} startup`);
   for (const id of ['run', 'pause', 'step', 'poweroff', 'release', 'send-midi']) $(id).disabled ||= r.board.poweredOff;
   document.querySelectorAll('[data-control], [data-encoder]').forEach(b => { b.disabled ||= r.board.poweredOff; });
   $('midi').textContent = typeof state.midi === 'string' ? state.midi : state.midi.name;
@@ -52,7 +55,7 @@ function render(state) {
   document.querySelectorAll('[data-encoder]').forEach(b => { b.style.setProperty('--rotation', `${state.panel.encoders[b.dataset.encoder] * 12}deg`); });
   const context = $('display').getContext('2d'), pixels = context.createImageData(256, 64);
   pixels.data.set(displayPixels(state.panel.display));
-  context.putImageData(pixels, 0, 0); $('display-status').textContent = `${state.panel.displayFrames} FRAME TRANSACTIONS`;
+  context.putImageData(pixels, 0, 0); $('display-status').textContent = state.panel.displayFrames ? `${state.panel.displayFrames} FRAME TRANSACTIONS` : state.running ? 'STARTING FIRMWARE…' : 'WAITING FOR FIRMWARE';
   $('midi-log').textContent = r.board.midiOut.slice(-32).map(p => `${p.tick}: ${p.byte.toString(16).padStart(2, '0')}`).join('\n') || 'No output';
 }
 $('image').addEventListener('change', () => act(async () => { const f = $('image').files[0]; if (f) { if (f.size > 4 * 1024 * 1024) throw Error('Image exceeds 4 MiB'); await api('load', await f.arrayBuffer(), true); } }));

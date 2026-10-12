@@ -17,6 +17,8 @@ for (let t = 0; t < 4; t++) {
   for (let i = 1; i <= 16; i++) LED_WIRES['ABCD'[t] + i] = [t * 2, i];
 }
 const GRAY = [0, 1, 3, 2];
+const INPUT_ROWS = Array.from({length: 8}, (_, row) => Object.entries(INPUT_WIRES).filter(([, wire]) => wire[0] === row).map(([name, [, bit]]) => [name, bit]));
+const LED_ENTRIES = Object.entries(LED_WIRES);
 export class Panel {
   constructor(mapping = {}) {
     this.buttons = Object.fromEntries([...BUTTONS, ...PADS].map(n => [n, false]));
@@ -43,7 +45,7 @@ export class Panel {
   }
   input(row) {
     let bits = 0;
-    for (const [name, [r, bit]] of Object.entries(INPUT_WIRES)) if (r === row && this.buttons[name]) bits |= 1 << bit;
+    for (const [name, bit] of INPUT_ROWS[row]) if (this.buttons[name]) bits |= 1 << bit;
     for (let i = 0; i < 6; i++) bits |= GRAY[this.encoderPhase[i]] << (4 + i * 2);
     const b = Array.from({length: 4}, (_, i) => bits >>> (i * 8) & 255);
     // Fifteen serial clocks precede the 32 input bits in an eight-byte scan.
@@ -78,7 +80,7 @@ export class Panel {
     if (row !== this.ledRow && this.ledSamples) {
       this.ledRows[this.ledRow] = this.ledCounts.map(n => Math.round(n * 255 / this.ledSamples));
       this.ledCounts.fill(0); this.ledSamples = 0; this.ledRow = row;
-      for (const [name, [r, bit]] of Object.entries(LED_WIRES)) this.leds[name] = Math.max(this.ledRows[r][bit], this.ledRows[r + 1][bit]);
+      for (const [name, [r, bit]] of LED_ENTRIES) this.leds[name] = Math.max(this.ledRows[r][bit], this.ledRows[r + 1][bit]);
       this.leds.tap = Math.max(this.ledRows[0][28], this.ledRows[0][29]);
       this.leds.stop = this.ledRows[0][30]; this.leds.record = this.ledRows[1][29]; this.leds.play = this.ledRows[1][30];
     }

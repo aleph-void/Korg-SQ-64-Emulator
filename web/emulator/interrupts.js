@@ -9,6 +9,7 @@ export class Interrupts {
     if (a === 0xe000ef00) { if (n !== 4 || value >= 96) throw Error('Invalid STIR'); this.pend(value); }
   }
   read(a, n) {
+    if (a < 0xe000e100 || a >= 0xe000e30c) return;
     const active = this.active.reduce((b, f) => b | 1n << BigInt(f.irq), 0n);
     for (const [base, value] of [[0xe000e100, this.enabled], [0xe000e180, this.enabled], [0xe000e200, this.pending], [0xe000e280, this.pending], [0xe000e300, active]]) {
       if (a >= base && a + n <= base + 12) { this.m.mem.put(a, Number(value >> BigInt((a - base) * 8) & ((1n << BigInt(n * 8)) - 1n)), n); return; }
