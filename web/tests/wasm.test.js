@@ -25,6 +25,25 @@ test('Cortex-M interrupt roundtrip restores the stack', async () => {
   const m = new Machine(engine, await loadImage(data)); m.irq.enabled = 1n << 55n; m.irq.pend(55);
   const r = m.run(20); assert.equal(r.error, null); assert.equal(r.sp, 0x20040000); assert.equal(r.interrupts.delivered, 1); m.close();
 });
+test('native bridge preserves instruction budgets, high MMIO addresses, IRQ masks and IT slots', async () => {
+  // Original Thumb probe: CPSID; enable/pend IRQ0; set its priority; CPSIE;
+  // then alternate R4 through true/false ITE slots. IRQ0 returns with BX LR.
+  const data = program([114,182,7,72,1,33,1,96,192,248,0,17,5,74,32,35,19,112,98,182,0,36,0,44,12,191,1,36,0,36,250,231,0,225,0,224,0,228,0,224]);
+  new DataView(data.buffer).setUint32(16 * 4, 0x200401, true); data.set([0x70, 0x47], 0x400);
+  const image = await loadImage(data), fast = new Machine(engine, image), scalar = new Machine(engine, image, {execution: 'scalar'});
+  try {
+    assert.ok(fast.bridge, 'test the shipped native bridge, not the scalar fallback');
+    let ticks = 0;
+    for (const count of [1, 2, 1, 3, 1, 2, 1, 2, 3, 17, 128, 1023, 1, 1, 1]) {
+      fast.run(count); scalar.run(count); ticks += count;
+      assert.equal(fast.error, null); assert.equal(scalar.error, null); assert.equal(fast.board.ticks, ticks);
+      for (const reg of ['PC', 'R0', 'R1', 'R2', 'R3', 'R4', 'SP', 'LR', 'XPSR', 'PRIMASK']) assert.equal(fast.reg(reg), scalar.reg(reg), reg);
+      assert.deepEqual(fast.irq.report(), scalar.irq.report());
+      assert.deepEqual(fast.mem.read(0xe000e000, 0x2000), scalar.mem.read(0xe000e000, 0x2000));
+    }
+    assert.equal(fast.irq.delivered, 1); assert.equal(fast.mem.get(0xe000e400, 1), 32);
+  } finally { fast.close(); scalar.close(); }
+});
 test('USB MIDI packing covers all SysEx tail sizes', () => {
   for (let n = 0; n < 24; n++) { const data = [240, ...Array.from({length: n}, (_, i) => i), 247]; assert.deepEqual(packetBytes(midiPackets(data)).flatMap(x => Array.from(x[1])), data); }
 });

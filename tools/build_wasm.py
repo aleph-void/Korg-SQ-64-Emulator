@@ -44,7 +44,9 @@ def main():
     module = importlib.util.spec_from_file_location('wasm_upstream_build', driver)
     build = importlib.util.module_from_spec(module); module.loader.exec_module(build)
     args.output.parent.mkdir(parents=True, exist_ok=True)
-    run('emcc', '-Os', str(target / 'build/libunicorn.a'), '-s', f'EXPORTED_FUNCTIONS={build.EXPORTED_FUNCTIONS}',
+    exports = build.EXPORTED_FUNCTIONS + ['_sq64_bridge_new', '_sq64_bridge_free']
+    run('emcc', '-O3', '-I', str(target / 'include'), str(Path(__file__).with_name('wasm_bridge.c')),
+        str(target / 'build/libunicorn.a'), '-s', f'EXPORTED_FUNCTIONS={exports}',
         '-s', "EXPORTED_RUNTIME_METHODS=['ccall','getValue','setValue','addFunction','removeFunction','writeArrayToMemory']",
         '-s', 'ALLOW_TABLE_GROWTH=1', '-s', 'ALLOW_MEMORY_GROWTH=1', '-s', 'MODULARIZE=1', '-s', 'EXPORT_ES6=1',
         '-s', 'SINGLE_FILE=1', '-s', 'WASM_BIGINT=1', '-s', 'EXPORT_NAME=MUnicorn',

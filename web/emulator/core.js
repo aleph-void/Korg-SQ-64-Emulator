@@ -1,5 +1,6 @@
 import {Board} from './board.js';
 import {Interrupts} from './interrupts.js';
+import {WasmBridge} from './bridge.js';
 export class Memory {
   constructor(module, engine) { this.u = module; this.e = engine; this.handle = module.getValue(engine.handle_ptr, '*'); this.regions = []; this.pages = new Map(); }
   map(base, size) {
@@ -41,21 +42,25 @@ export class Machine {
     this.setReg('MSP', image.stack); this.setReg('PC', image.reset); this.setReg('XPSR', 0x01000000); this.mem.put(0xe000ed08, 0x200000);
     this.board = new Board(this.mem, image, options); this.irq = new Interrupts(this); this.board.irq = this.irq;
     const guard = f => (...a) => { if (this.error) return; try { f(...a); } catch (e) { this.fail(e); } };
-    this.hooks.push(this.engine.hook_add(module.HOOK_CODE, guard((e, addr) => {
-      if (this.board.poweredOff) { this.engine.emu_stop(); return; }
-      const pc = Number(addr); this.board.advance();
-      while (this.eventIndex < this.events.length && this.events[this.eventIndex].tick <= this.board.ticks) this.event(this.events[this.eventIndex++]);
-      this.irq.instruction(pc);
-    })));
-    this.hooks.push(this.engine.hook_add(module.HOOK_MEM_READ, guard((e, t, addr, n) => {
-      const a = Number(addr); this.alignment(a, n); if (a >= 0x40000000) { this.board.read(a, n); this.irq.read(a, n); }
-    })));
-    this.hooks.push(this.engine.hook_add(module.HOOK_MEM_WRITE, guard((e, t, addr, n, value) => {
-      const a = Number(addr), v = Number(value) >>> 0; this.alignment(a, n);
+    const instruction = pc => this.irq.instruction(pc);
+    const read = (a, n) => { this.alignment(a, n); if (a >= 0x40000000) { this.board.read(a, n); this.irq.read(a, n); } };
+    const write = (a, n, v) => {
+      this.alignment(a, n);
       if (a >= 0x200000 && a < 0x210000) throw Error('Write to flash execution alias');
       if (a >= 0x40000000 || a >= 0x8000000 && a < 0x8010000) { this.irq.write(a, n, v); this.board.write(a, n, v); }
-    })));
-    this.hooks.push(this.engine.hook_add(module.HOOK_INTR, guard((e, n) => this.irq.exception(n))));
+    };
+    if (options.execution !== 'scalar' && module._sq64_bridge_new) this.bridge = new WasmBridge(this, instruction, read, write);
+    else {
+      this.hooks.push(this.engine.hook_add(module.HOOK_CODE, guard((e, addr) => {
+        if (this.board.poweredOff) { this.engine.emu_stop(); return; }
+        this.board.advance();
+        while (this.eventIndex < this.events.length && this.events[this.eventIndex].tick <= this.board.ticks) this.event(this.events[this.eventIndex++]);
+        instruction(Number(addr));
+      })));
+      this.hooks.push(this.engine.hook_add(module.HOOK_MEM_READ, guard((e, t, addr, n) => read(Number(addr), n))));
+      this.hooks.push(this.engine.hook_add(module.HOOK_MEM_WRITE, guard((e, t, addr, n, value) => write(Number(addr), n, Number(value) >>> 0))));
+    }
+    this.hooks.push(this.engine.hook_add(module.HOOK_INTR, guard((e, n) => { this.bridge?.flush(); this.irq.exception(n); this.bridge?.configure(); })));
   }
   reg(name) { const code = this.u._uc_reg_read(this.handle, this.u['ARM_REG_' + name], this.scratch); if (code) throw Error(`Register read ${name}: ${code}`); return this.u.getValue(this.scratch, 'i32') >>> 0; }
   setReg(name, value) { this.u.setValue(this.scratch, value, 'i32'); const code = this.u._uc_reg_write(this.handle, this.u['ARM_REG_' + name], this.scratch); if (code) throw Error(`Register write ${name}: ${code}`); }
@@ -77,11 +82,18 @@ export class Machine {
     for (const e of events) { if (!Number.isInteger(e.tick) || e.tick < last) throw Error('Replay must be ordered and in the future'); last = e.tick; }
     this.events = structuredClone(events); this.eventIndex = 0;
   }
+  queueEvent(event, tick) {
+    if (tick <= this.board.ticks) return this.event(event);
+    if (this.eventIndex) { this.events = this.events.slice(this.eventIndex); this.eventIndex = 0; }
+    if (this.events.length >= 100000) throw Error('Input queue full');
+    const index = this.events.findIndex(e => e.tick > tick);
+    this.events.splice(index < 0 ? this.events.length : index, 0, {...event, tick});
+  }
   run(count = 10000) {
     if (!Number.isInteger(count) || count < 1 || count > 10000000) throw Error('Invalid instruction budget');
-    if (!this.error && !this.board.poweredOff) try { this.engine.emu_start(this.reg('PC') | 1, 0xffffffff, 0, count); } catch (e) { this.fail(e); }
+    if (!this.error && !this.board.poweredOff) try { this.bridge?.prepare(count); this.engine.emu_start(this.reg('PC') | 1, 0xffffffff, 0, this.bridge ? 0 : count); } catch (e) { this.fail(e); } finally { this.bridge?.flush(); }
     return this.report();
   }
   report() { return {format: 'sq64-emulator-report', version: 1, engine: 'unicorn-wasm-2.1.4-tci-itstate', imageSha256: this.image.sha256, status: this.error ? 'fault' : 'paused', error: this.error, pc: this.reg('PC'), sp: this.reg('SP'), board: this.board.report(), interrupts: this.irq.report(), hardwareConformance: 'not-established'}; }
-  close() { for (const h of this.hooks) this.engine.hook_del(h); this.engine.close(); this.mem.close(); this.u._free(this.scratch); this.u._free(this.engine.handle_ptr); }
+  close() { this.bridge?.close(); for (const h of this.hooks) this.engine.hook_del(h); this.engine.close(); this.mem.close(); this.u._free(this.scratch); this.u._free(this.engine.handle_ptr); }
 }

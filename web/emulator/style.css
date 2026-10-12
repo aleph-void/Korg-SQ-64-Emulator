@@ -5,4 +5,8 @@
 
 .official-firmware{margin:1.2rem 0;padding:1rem;border:1px solid var(--border,#393943);border-radius:12px}.official-firmware a{color:#bba5eb;margin-left:.75rem}.official-firmware p{font-size:.85rem;color:#b9b7c4}.official-firmware .file-button{display:inline-block;margin:.4rem .5rem .4rem 0}
 
+.control.lit[aria-pressed=true],.pad.lit[aria-pressed=true]{background:#8b5cf6;border-color:#ede9fe}
+
+.control.lit,.pad.lit{background:color-mix(in srgb,#8b5cf6 calc(var(--led-intensity,0)*100%),#24242d);color:color-mix(in srgb,#fff calc(var(--led-intensity,0)*100%),#82828f);border-color:color-mix(in srgb,#c4b5fd calc(var(--led-intensity,0)*100%),#494953);box-shadow:0 0 12px rgb(139 92 246 / calc(var(--led-intensity,0)*.45))}
+
 .panel-foot{align-items:center}.foot-button{font-size:10px;padding:7px 11px;white-space:nowrap}.instrument:fullscreen{border:none;border-radius:0;overflow:auto;padding:30px max(25px,calc((100vw - 1480px)/2));display:flex;flex-direction:column}.instrument:fullscreen::before,.instrument:fullscreen::after{content:"";margin:auto}.instrument:fullscreen .screen-wrap{max-width:460px}

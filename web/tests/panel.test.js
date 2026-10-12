@@ -24,7 +24,8 @@ test('six encoders produce ordered quadrature edges and preserve direction rever
   for (let i=0;i<ENCODERS.length;i++) {
     const p=new Panel();p.event({type:'encoder',control:ENCODERS[i],delta:1},0);p.event({type:'encoder',control:ENCODERS[i],delta:-1},1);
     const phases=[];
-    for(let row=1;row<=4;row++){p.scanFrame(scan(row));phases.push(parallel(p.input(row)) >>> (4+i*2) & 3);}
+    const bit = [4, 6, 12, 14, 8, 10][i];
+    for(let row=1;row<=4;row++){p.scanFrame(scan(row));phases.push(parallel(p.input(row)) >>> bit & 3);}
     assert.deepEqual(phases,[1,3,1,0]);assert.equal(p.encoders[ENCODERS[i]],0);
   }
 });

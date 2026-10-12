@@ -46,6 +46,26 @@ test('control surface records inputs and requests startup chords (UI state only)
   expect(recording.some(e => e.type === 'encoder' && e.control === 'tempo' && e.delta === 1)).toBe(true);
 });
 
+test('firmware LED brightness is visible on named controls and distinguishes dim pads', async ({page}) => {
+  await page.goto('/'); await page.locator('#browser-workbench summary').click();
+  const panel = page.frameLocator('#emulator-frame');
+  await panel.locator('#load-probe').click();
+  await expect(panel.locator('#status')).toContainText('Running');
+  await page.evaluate(async () => {
+    const device = window.sq64Emulator; await device.request('pause');
+    const state = structuredClone(await device.request('state'));
+    device.worker.terminate(); // Freeze the probe before injecting a rendering-only snapshot.
+    Object.assign(state.panel.leds, {tap: 255, play: 255, A1: 12, A2: 195, A3: 0});
+    device.dispatchEvent(new CustomEvent('state', {detail: state}));
+  });
+  await expect(panel.locator('[data-control=tap]')).toHaveAttribute('data-led', '255');
+  const styles = await panel.locator('[data-control]').evaluateAll(elements => Object.fromEntries(elements.map(e => [e.dataset.control, getComputedStyle(e).backgroundColor])));
+  expect(styles.tap).toEqual(styles.play);
+  expect(styles.tap).not.toEqual(styles.A3);
+  expect(styles.A1).not.toEqual(styles.A2);
+  expect(styles.A2).not.toEqual(styles.A3);
+});
+
 
 test('power button lets ARM firmware release power, disconnects MIDI, and restarts', async ({page}) => {
   // Independently authored power-probe.s: assert PB7, poll PC13, release PB7.

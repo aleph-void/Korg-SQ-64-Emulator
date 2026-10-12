@@ -5,12 +5,12 @@ import {MidiMessages} from './midi.js';
 export const TIMERS = new Map([[0x40000000, 28], [0x40000400, 29], [0x40000800, 30], [0x40000c00, 50], [0x40001000, 54], [0x40001400, 55], [0x40011400, 24]]);
 const KNOWN_WINDOWS = [...TIMERS.keys()].map(a => [a, 0x80]).concat([[0x40003800, 0x800], [0x40004400, 0x800], [0x40007000, 0x800], [0x40010000, 0x100], [0x40012000, 0x400], [0x40013000, 0x5000], [0x40020000, 0x2400], [0x40023800, 0x800], [0x40026000, 0x800], [0xe000e000, 0x2000]]);
 export class Board {
-  constructor(memory, image, {mapping = {}, onMidi = () => {}, transport = 'usb', cyclesPerInstruction = 16} = {}) {
+  constructor(memory, image, {mapping = {}, onMidi = () => {}, transport = 'usb', cyclesPerInstruction = 16, syncConnected = false} = {}) {
     if (!Number.isInteger(cyclesPerInstruction) || cyclesPerInstruction < 1 || cyclesPerInstruction > 64) throw Error('Invalid virtual instruction timing');
     this.mem = memory; this.flash = new SpiFlash(image.spi); this.panel = new Panel(mapping); this.usb = new UsbDevice(this);
     this.ticks = 0; this.cycles = 0; this.cyclesPerInstruction = cyclesPerInstruction; this.timers = new Set(); this.fraction = new Map(); this.dmaReload = new Map();
     this.flashRx = []; this.panelRx = []; this.scanPosition = 0; this.uartRx = new Map([[0x40004400, []], [0x40004800, []]]);
-    this.powerButton = false; this.poweredOff = false;
+    this.powerButton = false; this.poweredOff = false; this.syncConnected = syncConnected;
     this.timerCycle = 0; this.nextTimerCycle = Infinity;
     this.flashKey = 0; this.flashControl = 0x80000000; this.adc = 0xc000; this.lastPanelDma = 0; this.trace = []; this.midiOut = [];
     this.onMidi = onMidi; this.transport = transport; this.parsers = new Map();
@@ -20,8 +20,8 @@ export class Board {
   put(a, v, n = 4) { this.mem.put(a, v, n); }
   pend(n) { this.irq?.pend(n); }
   record(value) { this.trace.push(value); if (this.trace.length > 1024) this.trace.shift(); }
-  advance() {
-    this.ticks++; this.cycles += this.cyclesPerInstruction;
+  advance(instructions = 1) {
+    this.ticks += instructions; this.cycles += this.cyclesPerInstruction * instructions;
     if (this.cycles >= this.nextTimerCycle) this.syncTimers();
     if (this.ticks % 128 === 0) { this.completeDma(); this.usb.service(); }
   }
@@ -31,7 +31,7 @@ export class Board {
     const elapsed = this.cycles - this.timerCycle; this.timerCycle = this.cycles;
     this.nextTimerCycle = Infinity;
     for (const base of this.timers) {
-      const period = this.get(base + 0x28) + 1;
+      const period = (this.get(base + 0x28) + 1) * this.timerClockDivider(base);
       const fraction = (this.fraction.get(base) || 0) + elapsed;
       const increment = Math.floor(fraction / period), remainder = fraction % period;
       this.fraction.set(base, remainder);
@@ -44,6 +44,13 @@ export class Board {
       }
       this.nextTimerCycle = Math.min(this.nextTimerCycle, this.cycles + Math.max(1, (reload - count) * period - remainder));
     }
+  }
+  timerClockDivider(base) {
+    const prescaler = this.get(0x40023808) >>> (base >= 0x40010000 ? 13 : 10) & 7;
+    const apb = prescaler < 4 ? 1 : 1 << (prescaler - 3);
+    // STM32F7 RCC: divided APB domains clock timers at 2x PCLK, or
+    // 4x PCLK/HCLK when TIMPRE is set. Cycles are measured in HCLK.
+    return Math.max(1, apb / (this.get(0x4002388c) & 0x1000000 ? 4 : 2));
   }
   timerAddress(a) { return a >= 0x40000000 && a < 0x40001480 && (a & 0x3ff) < 0x80 || a >= 0x40011400 && a < 0x40011480; }
   emitMidi(byte, port, cable = 0) {
@@ -62,7 +69,7 @@ export class Board {
     return KNOWN_WINDOWS.some(([b, n]) => a >= b && a < b + n);
   }
   write(a, n, v) {
-    if (this.timerAddress(a)) { this.syncTimers(); this.nextTimerCycle = this.cycles + this.cyclesPerInstruction; }
+    if (this.timerAddress(a) || a === 0x40023808 || a === 0x4002388c) { this.syncTimers(); this.nextTimerCycle = this.cycles + this.cyclesPerInstruction; }
     if (TIMERS.has(a)) { if (v & 1) this.timers.add(a); else this.timers.delete(a); }
     if (a >= 0x50000000 && a < 0x50006000) { if (n !== 4) throw Error('USB requires word access'); this.usb.write(a - 0x50000000, v); return; }
     if (a >= 0x8000000 && a < 0x8010000) {
@@ -95,6 +102,7 @@ export class Board {
     if (a >= 0x50000000 && a < 0x50006000) { if (n !== 4) throw Error('USB word access required'); this.put(a, this.usb.read(a - 0x50000000)); return; }
     if (!this.known(a)) throw Error(`Unmodeled peripheral read at 0x${a.toString(16)}`);
     if (a === 0x40020810) this.put(a, this.get(a) & ~8192 | (this.powerButton ? 0 : 8192)); // PC13 active-low power button
+    if (a === 0x40020410) this.put(a, this.get(a) & ~16 | (this.syncConnected ? 0 : 16)); // PB4: active-low sync jack detect
     if (a === 0x40020010) this.put(a, this.get(a) | 512); // USB VBUS input on PA9
     if (a === 0x40023800) { let v = this.get(a); for (const bit of [0, 16, 24, 26]) if (v & 1 << bit) v |= 1 << (bit + 1); this.put(a, v); }
     if (a === 0x40023808) { const v = this.get(a); this.put(a, v & ~12 | (v & 3) << 2); }

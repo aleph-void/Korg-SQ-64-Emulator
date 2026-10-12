@@ -19,6 +19,32 @@ test('attached virtual USB host drives VBUS without changing other GPIO inputs',
   b.read(0x40020010, 4); assert.equal(b.get(0x40020010), 0x281);
 });
 
+test('an unplugged sync jack reads high and does not stop the internal tempo', () => {
+  const b = board(); b.put(0x40020410, 0x81); b.read(0x40020410, 4);
+  assert.equal(b.get(0x40020410), 0x91);
+  b.syncConnected = true; b.read(0x40020410, 4); assert.equal(b.get(0x40020410), 0x81);
+});
+
+test('APB timer clocks honor independent bus divisors and TIMPRE', () => {
+  const b = board();
+  b.put(0x40023808, 5 << 10 | 6 << 13); // APB1 / 4; APB2 / 8.
+  assert.equal(b.timerClockDivider(0x40000000), 2);
+  assert.equal(b.timerClockDivider(0x40011400), 4);
+  b.put(0x4002388c, 1 << 24);
+  assert.equal(b.timerClockDivider(0x40000000), 1);
+  assert.equal(b.timerClockDivider(0x40011400), 2);
+  b.put(0x40023808, 4 << 10 | 4 << 13);
+  assert.equal(b.timerClockDivider(0x40000000), 1);
+  assert.equal(b.timerClockDivider(0x40011400), 1);
+  const pending = []; b.irq = {pend: n => pending.push([b.ticks, n])};
+  b.put(0x40023808, 5 << 10); b.put(0x4002388c, 0);
+  for (const [offset, value] of [[0x28, 15], [0x2c, 9], [12, 1], [0, 1]]) {
+    b.write(0x40000000 + offset, 4, value); b.put(0x40000000 + offset, value);
+  }
+  for (let i = 0; i < 19; i++) b.advance(); assert.deepEqual(pending, []);
+  b.advance(); assert.deepEqual(pending, [[20, 28]]);
+});
+
 test('panel DMA waits for the programmed SPI serial clock before half/full interrupts', () => {
   const b = board(), irqs = [];
   b.irq = {pend: n => irqs.push(n)};

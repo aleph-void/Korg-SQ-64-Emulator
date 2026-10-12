@@ -1,6 +1,8 @@
 export const BUTTONS = ['tap', 'record', 'stop', 'play', 'control', 'project', 'global', 'pattern', 'gate', 'pitch', 'mod', 'loop', 'shift', 'bar1', 'bar2', 'bar3', 'bar4', 'trackA', 'trackB', 'trackC', 'trackD'];
 export const PADS = [...'ABCD'].flatMap(t => Array.from({length: 16}, (_, i) => t + (i + 1)));
 export const ENCODERS = ['tempo', 'swing', 'param1', 'param2', 'param3', 'param4'];
+// Physical quadrature pairs do not follow the screen's parameter order.
+export const ENCODER_BITS = {tempo: 4, swing: 6, param1: 12, param2: 14, param3: 8, param4: 10};
 // Electrical input matrix: row select, bit in the 32 parallel input lines.
 export const INPUT_WIRES = {
   tap: [0, 0], record: [1, 0], stop: [0, 1], play: [1, 1], control: [0, 18],
@@ -46,7 +48,7 @@ export class Panel {
   input(row) {
     let bits = 0;
     for (const [name, bit] of INPUT_ROWS[row]) if (this.buttons[name]) bits |= 1 << bit;
-    for (let i = 0; i < 6; i++) bits |= GRAY[this.encoderPhase[i]] << (4 + i * 2);
+    for (let i = 0; i < 6; i++) bits |= GRAY[this.encoderPhase[i]] << ENCODER_BITS[ENCODERS[i]];
     const b = Array.from({length: 4}, (_, i) => bits >>> (i * 8) & 255);
     // Fifteen serial clocks precede the 32 input bits in an eight-byte scan.
     return Uint8Array.of(0, b[0] >>> 7, b[0] << 1 | b[1] >>> 7, b[1] << 1 | b[2] >>> 7, b[2] << 1 | b[3] >>> 7, b[3] << 1, 0, 0);

@@ -3,6 +3,7 @@ export class Interrupts {
   constructor(machine) { this.m = machine; this.enabled = 0n; this.pending = 0n; this.active = []; this.trace = []; this.delivered = 0; this.scheduled = 0; this.itSlots = new Map(); }
   pend(irq) { this.pending |= 1n << BigInt(irq); this.scheduled++; }
   write(a, n, value) {
+    if (a < 0xe000e100 || a > 0xe000ef00) return;
     for (const [base, field, clear] of [[0xe000e100, 'enabled', false], [0xe000e180, 'enabled', true], [0xe000e200, 'pending', false], [0xe000e280, 'pending', true]]) {
       if (a >= base && a + n <= base + 12) { const bits = BigInt(value) << BigInt((a - base) * 8); this[field] = clear ? this[field] & ~bits : this[field] | bits; return; }
     }
@@ -22,7 +23,12 @@ export class Interrupts {
     let ceiling = this.active.length ? this.priority(this.active.at(-1).irq) : 256, selected = null;
     const basepri = m.reg('BASEPRI') & 240; if (basepri) ceiling = Math.min(ceiling, basepri);
     const bits = this.pending & this.enabled;
-    for (let irq = 0; irq < 96; irq++) if (bits & 1n << BigInt(irq) && this.priority(irq) < ceiling) { ceiling = this.priority(irq); selected = irq; }
+    for (let bank = 0; bank < 3; bank++) {
+      let word = Number(bits >> BigInt(bank * 32) & 0xffffffffn);
+      while (word) { const bit = 31 - Math.clz32(word & -word), irq = bank * 32 + bit, priority = this.priority(irq); word &= word - 1;
+        if (priority < ceiling) { ceiling = priority; selected = irq; }
+      }
+    }
     return selected;
   }
   enter(irq, pc) {

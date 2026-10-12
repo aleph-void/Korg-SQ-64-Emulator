@@ -51,7 +51,7 @@ function render(state) {
   document.querySelectorAll('[data-control], [data-encoder]').forEach(b => { b.disabled ||= r.board.poweredOff; });
   $('midi').textContent = typeof state.midi === 'string' ? state.midi : state.midi.name;
   $('limitations').replaceChildren(...r.board.approximations.map(text => { const li = document.createElement('li'); li.textContent = text; return li; }));
-  document.querySelectorAll('[data-control]').forEach(b => { b.setAttribute('aria-pressed', String(Boolean(state.panel.buttons[b.dataset.control]))); b.classList.toggle('lit', state.panel.leds[b.dataset.control] > 0); });
+  document.querySelectorAll('[data-control]').forEach(b => { b.setAttribute('aria-pressed', String(Boolean(state.panel.buttons[b.dataset.control]))); const level = state.panel.leds[b.dataset.control] || 0; b.classList.toggle('lit', level > 0); b.dataset.led = String(level); b.style.setProperty('--led-intensity', String(level / 255)); b.setAttribute('aria-description', level > 0 ? 'Firmware indicator lit' : 'Firmware indicator off'); });
   document.querySelectorAll('[data-encoder]').forEach(b => { b.style.setProperty('--rotation', `${state.panel.encoders[b.dataset.encoder] * 12}deg`); });
   const context = $('display').getContext('2d'), pixels = context.createImageData(256, 64);
   pixels.data.set(displayPixels(state.panel.display));
