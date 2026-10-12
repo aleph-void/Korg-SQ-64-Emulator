@@ -45,3 +45,9 @@ The future domain is `sq64.alephvoid.com`. [Deployment instructions](web/README.
 ## Source policy
 
 No original Korg firmware, decompiled code or vendor assets are included. Host implementations and diagnostic ARM programs are independently authored from interface facts. This is not a claim of legally certified clean-room development. Read [PROVENANCE.md](PROVENANCE.md). Unicorn/unicorn.js are GPLv2; their complete corresponding source and build recipe are shipped with the web app. See LICENSE and web/NOTICE.txt.
+
+## License
+
+The emulator, integrated web tools, and original diagnostic probes are licensed under **GNU GPL version 2 only** (`GPL-2.0-only`); see [LICENSE](LICENSE). You may use, modify, and redistribute them under those terms. They are provided without warranty.
+
+Redistributed native builds and hosted browser builds must provide their corresponding source, modifications, and build scripts under GPLv2. The browser distribution includes the patched Unicorn engine's complete corresponding source and build recipe in `web/vendor/`. Keep the source for each released application version available alongside that release. Upstream copyright notices and third-party licenses remain in force; fonts retain their OFL licenses, and the license grants no trademark rights. Firmware supplied by a user is separate from the emulator's license.

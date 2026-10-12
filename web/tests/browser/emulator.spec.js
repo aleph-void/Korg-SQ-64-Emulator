@@ -67,27 +67,12 @@ test('power button lets ARM firmware release power, disconnects MIDI, and restar
   expect(await page.evaluate(() => window.sq64Emulator.output.state)).toBe('connected');
 });
 
-test('official boot reports a blocked download without replacing firmware or offering a fallback', async ({page}) => {
-  await page.route('https://cdn.korg.com/**', route => route.abort());
+test('update panel links the official firmware ZIP without any in-app download', async ({page}) => {
   await page.goto('/'); await page.locator('#browser-workbench summary').click();
   const panel = page.frameLocator('#emulator-frame');
-  await panel.locator('#boot-official').click();
-  await expect(panel.locator('#official-status')).toContainText('blocked browser access');
-  await expect(panel.locator('#boot-official')).toBeEnabled();
-  await expect(panel.locator('#official-fallback, #official-file')).toHaveCount(0);
+  await expect(panel.locator('#boot-official')).toHaveCount(0);
   await page.getByRole('button', {name: 'Update firmware', exact: true}).click();
   await expect(page.locator('#official-firmware-zip')).toBeVisible();
   await expect(page.locator('#official-firmware-zip')).toHaveAttribute('href', 'https://cdn.korg.com/jp/support/download/files/765e1fc1c8b5e0fe446fefb7199dd6bf.zip');
-  expect(await page.evaluate(() => window.sq64Emulator.loaded)).toBe(false);
-});
-
-test('official boot rejects an unexpected download before changing the emulator', async ({page}) => {
-  await page.route('https://cdn.korg.com/**', route => route.fulfill({
-    status: 200, headers: {'access-control-allow-origin': '*'}, body: Buffer.from(syntheticVsb()),
-  }));
-  await page.goto('/'); await page.locator('#browser-workbench summary').click();
-  const panel = page.frameLocator('#emulator-frame');
-  await panel.locator('#boot-official').click();
-  await expect(panel.locator('#official-status')).toContainText('not the verified official');
   expect(await page.evaluate(() => window.sq64Emulator.loaded)).toBe(false);
 });

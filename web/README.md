@@ -38,6 +38,4 @@ The complete board model remains experimental. An emulator pass alone is not a r
 
 ## Official firmware download
 
-**Boot Korg 2.03** requests the official updater ZIP directly from `cdn.korg.com`, extracts its single VSB in memory, verifies the pinned SHA-256 and package checksums, and starts the emulator using USB transport. No vendor firmware is bundled or uploaded. The update panel also links directly to the official ZIP.
-
-Korg's CDN currently omits browser CORS permission, so the automatic boot request reports an error in a normal browser. There is no proxy or fallback flow. The button can work if the CDN grants CORS access; local file loading remains available independently. The SHA-256 pin is specific to the verified 2.03 image. A changed download must be reviewed before updating the pin.
+The update panel and the emulator page link directly to Korg's official updater ZIP and download page. Download the ZIP in the browser, extract the single `.VSB`, and load it as a local file. The app never fetches from `cdn.korg.com` itself: the CDN omits browser CORS permission, so an in-app download is not possible, and there is no proxy or fallback flow. No vendor firmware is bundled or uploaded.

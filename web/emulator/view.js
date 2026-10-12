@@ -1,9 +1,8 @@
 const $ = id => document.getElementById(id);
 import {BrowserEmulator} from './client.js';
-import {fetchOfficial203} from './official.js';
 import {displayPixels} from './display.js';
 const device = window.parent !== window && window.parent.sq64Emulator ? window.parent.sq64Emulator : new BrowserEmulator();
-let lastState, officialBusy = false;
+let lastState;
 const held = new Set();
 async function api(path, data = {}, raw = false) {
   if (device.locked && !['state', 'recording'].includes(path)) throw Error('Wait for the current updater or backup operation to finish');
@@ -39,7 +38,7 @@ function knob(name, parent) {
 ['bar1', 'bar2', 'bar3', 'bar4', 'shift'].forEach(n => button(n, n.toUpperCase(), 'bars'));
 for (const track of 'ABCD') { button(`track${track}`, track, 'matrix'); for (let i = 1; i <= 16; i++) button(track + i, String(i), 'matrix', true); }
 function render(state) {
-  lastState = state; $('boot-official').disabled = !!state.locked || officialBusy; $('image').disabled = !!state.locked; $('load-probe').disabled = !!state.locked; $('midi-route').disabled = !!state.locked;
+  lastState = state; $('image').disabled = !!state.locked; $('load-probe').disabled = !!state.locked; $('midi-route').disabled = !!state.locked;
   for (const id of ['run', 'pause', 'step', 'poweroff', 'reset', 'version', 'update', 'release', 'send-midi']) $(id).disabled = !state.loaded || state.locked;
   document.querySelectorAll('[data-control], [data-encoder]').forEach(b => { b.disabled = !state.loaded || state.locked; });
   if (!state.loaded) return;
@@ -84,23 +83,3 @@ if (window.parent !== window) new ResizeObserver(() => {
   const frame = window.frameElement;
   if (frame) frame.style.height = document.documentElement.scrollHeight + 'px';
 }).observe(document.body);
-
-async function bootOfficial(getBytes) {
-  if (device.locked || officialBusy) return;
-  officialBusy = true; $('boot-official').disabled = true;
-  $('official-status').textContent = 'Downloading and verifying Korg 2.03…';
-  try {
-    const bytes = await getBytes();
-    if (device.locked) throw Error('Wait for the current device operation before loading firmware');
-    $('midi-route').value = 'usb'; await api('load', bytes, true); await api('run');
-    $('official-status').textContent = 'Verified Korg 2.03 is booting in the browser emulator.';
-  } catch (error) {
-    $('official-status').textContent = error instanceof TypeError ? 'Korg’s server blocked browser access, or the download is unavailable.' : error.message;
-  } finally {
-    officialBusy = false; $('boot-official').disabled = device.locked;
-  }
-}
-$('boot-official').addEventListener('click', () => bootOfficial(async () => {
-  const controller = new AbortController(), timer = setTimeout(() => controller.abort(), 30000);
-  try { return await fetchOfficial203({signal: controller.signal}); } finally { clearTimeout(timer); }
-}));

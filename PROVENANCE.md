@@ -17,4 +17,4 @@ Reference documents:
 
 Run `python3 tools/audit_public.py .` before publication. The audit catches known accidental inclusions; it does not prove that arbitrary future contributions have acceptable provenance. New contributions must identify their source and use original fixtures.
 
-The official-download button stores only a Korg URL and the verified 2.03 VSB digest. It fetches firmware into the user's browser on request, subject to Korg's CORS policy. It does not redistribute that ZIP or its contents in this repository.
+The official-download links store only Korg URLs. The user downloads firmware from Korg directly; this repository does not fetch, redistribute, or contain that ZIP or its contents.
