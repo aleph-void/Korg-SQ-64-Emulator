@@ -22,6 +22,7 @@ for (const embedded of [true, false]) {
     await panel.locator('#image').setInputFiles(firmware());
     await expect(panel.locator('#status')).toHaveText('Firmware loaded · press Power on to start');
     await expect(panel.locator('#image-status')).toHaveText('Loaded: original-loop.bin');
+    await expect(panel.locator('#image')).toHaveValue(/original-loop\.bin$/);
     for (const id of ['reset', 'run', 'version', 'update', 'debug-enabled', 'validate-image']) await expect(panel.locator(`#${id}`)).toBeEnabled();
     await panel.locator('#reset').click();
     await expect(panel.locator('#status')).toContainText('Running');
@@ -38,6 +39,7 @@ for (const embedded of [true, false]) {
     await expect(panel.locator('#reset')).toBeEnabled();
     await panel.locator('#image').setInputFiles(firmware());
     await expect(status).toHaveText('Firmware loaded · press Power on to start');
+    await expect(panel.locator('#image')).toHaveValue(/original-loop\.bin$/);
     await expect(panel.locator('#reset')).toBeEnabled();
   });
 }

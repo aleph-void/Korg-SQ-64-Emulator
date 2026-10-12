@@ -97,10 +97,10 @@ async function loadFile(event) {
     imageName.value = file.name;
   } catch (failure) {
     error.value = loadError.value = failure.message;
+    // Allow retrying a rejected file without clearing a successful selection.
+    event.target.value = '';
   } finally {
     loading.value = false;
-    // Let the same file be selected again after an error or a local edit.
-    event.target.value = '';
   }
 }
 async function loadProbe() {
