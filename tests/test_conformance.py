@@ -90,7 +90,7 @@ class ConformanceTests(unittest.TestCase):
         self.assertEqual(report['counts'], {'pass': 7, 'fail': 0, 'not-run': 0})
         self.assertEqual(report['imageSha256'], hashlib.sha256(data).hexdigest())
         self.assertFalse(report['hardwareValidated'])
-        self.assertEqual(report['specVersion'], '0.5.0')
+        self.assertEqual(report['specVersion'], '0.7.0')
         self.assertEqual(report['inputScope'], 'loaded-file')
         for offset, identifier in [(16, 'PKG-002'), (0x30, 'PKG-003'), (0x2a, 'PKG-004'),
                                    (256, 'BOOT-001'), (260, 'BOOT-002'), (0x110, 'PKG-005')]:

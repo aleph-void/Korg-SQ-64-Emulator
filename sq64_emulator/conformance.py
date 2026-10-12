@@ -3,7 +3,7 @@ from ._vendor.sq64_spec.report import catalog, evaluate
 
 SPEC_SOURCE = {
     'url': 'https://github.com/aleph-void/Korg-SQ-64-Custom-Firmware-Spec',
-    'revision': '6b9c4a4c6ea69317b01d7ba9d331baa79df7dca8',
+    'revision': '0212e997d27393c5cb6cee48b2a8387f059f1251',
 }
 
 

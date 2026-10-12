@@ -1,6 +1,6 @@
 {
   "format": "sq64-requirements",
-  "version": "0.5.0",
+  "version": "0.7.0",
   "profiles": {
     "image": "Bounded full-system VSB structural checks",
     "hardware": "Device contract, including physical evidence and declared feature behavior",
@@ -1227,6 +1227,205 @@
         "shift-alone-no-effect",
         "undeclared-combination-guards",
         "state-guards"
+      ]
+    },
+    {
+      "id": "TRACK-001",
+      "title": "Track selection",
+      "shall": "Select the corresponding track as the active edit track through each of the A, B, C and D keys, make the active track observable, route subsequent edits to the selected track only, and change no pattern, workspace or settings data from track selection alone.",
+      "verification": "Select every track while each holds distinct synthetic data, stopped and while sequencing; confirm the reported selection, apply an edit and verify only the selected track changes, and digest-compare all patterns, the workspace and settings after selection-only sequences.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible",
+        "application-only"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "each-track-key",
+        "selection-report",
+        "edits-follow-selection",
+        "selection-only-no-mutation",
+        "while-sequencing"
+      ]
+    },
+    {
+      "id": "MODE-001",
+      "title": "Edit mode keys",
+      "shall": "Enter a documented edit mode from each of the PITCH, GATE, MOD and CONTROL keys, make the active mode observable, scope edits in each mode to that mode's documented parameters on the active track, and change no data from mode entry or exit alone.",
+      "verification": "Enter and leave each mode while stopped and while sequencing, confirm the reported mode, perform a documented edit in each mode and verify only that mode's parameters change; digest-compare the workspace, saved slots and settings after entry-and-exit-only sequences.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible",
+        "application-only"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "pitch-key",
+        "gate-key",
+        "mod-key",
+        "control-key",
+        "mode-report",
+        "edit-scoping",
+        "entry-exit-no-mutation"
+      ]
+    },
+    {
+      "id": "LOOP-001",
+      "title": "Loop key",
+      "shall": "Provide the documented loop function from the LOOP key, declare its operations and bounds, keep every loop operation within the declared bounds of the active pattern, and resume the declared normal playback behavior when the loop is cleared.",
+      "verification": "Exercise each declared loop operation at its boundary values, verify playback output honors the declared loop region, clear the loop and compare subsequent output against never-looped playback; digest-compare saved slots and settings afterward.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible",
+        "application-only"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "declared-loop-operations",
+        "boundary-values",
+        "playback-honors-loop",
+        "clear-restores-normal",
+        "saved-data-guards"
+      ]
+    },
+    {
+      "id": "BAR-001",
+      "title": "Bar selection",
+      "shall": "Select the corresponding documented bar of the active pattern through each of the numbered keys 1 to 4, make the selected bar observable, direct step edits to steps within the selected bar, and change no pattern data from bar selection alone.",
+      "verification": "Select each bar of patterns holding distinct synthetic data per bar, confirm the reported bar and that pad edits land only in the selected bar's steps; digest-compare pattern data after selection-only sequences, stopped and while sequencing.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible",
+        "application-only"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "each-bar-key",
+        "selection-report",
+        "edits-land-in-selected-bar",
+        "selection-only-no-mutation",
+        "while-sequencing"
+      ]
+    },
+    {
+      "id": "TAP-001",
+      "title": "Tap tempo",
+      "shall": "Derive the internal tempo from the documented TAP key sequence within the declared supported tempo range, handle out-of-range and incomplete tap sequences as documented without undefined tempo, and change no stored data from taps alone.",
+      "verification": "Tap documented sequences at the minimum, a nominal and the maximum supported tempo and measure resulting output intervals against the declared tolerance; apply too-fast, too-slow and single taps with explicit expected handling; digest-compare saved slots and committed settings afterward.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible",
+        "application-only"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": true,
+      "cases": [
+        "minimum-tempo",
+        "nominal-tempo",
+        "maximum-tempo",
+        "out-of-range-taps",
+        "single-tap",
+        "measured-intervals",
+        "stored-data-guards"
+      ]
+    },
+    {
+      "id": "TEMPO-001",
+      "title": "Tempo knob",
+      "shall": "Adjust the internal tempo from the TEMPO encoder across the declared supported tempo range, apply one documented increment per detent in each direction, clamp at the declared limits without wraparound, and make the current tempo observable.",
+      "verification": "Step the encoder through the full range in both directions, including repeated detents at both limits and any declared acceleration; measure output intervals at the minimum, a nominal and the maximum tempo against the declared tolerance; digest-compare saved slots and committed settings after adjustment-only sequences.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible",
+        "application-only"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": true,
+      "cases": [
+        "each-direction-detent",
+        "full-range-sweep",
+        "clamp-at-limits",
+        "tempo-report",
+        "measured-intervals",
+        "settings-guards"
+      ]
+    },
+    {
+      "id": "SWING-001",
+      "title": "Swing knob",
+      "shall": "Adjust the documented swing amount from the SWING encoder across the declared supported range, apply the declared timing offset only to the documented steps, clamp at the declared limits, and produce unswung timing at the neutral setting.",
+      "verification": "Measure step timing at the neutral setting and at the declared boundary swing values against the declared tolerance, verify steps outside the documented swing set keep nominal timing, sweep both directions with clamping at the limits, and digest-compare saved slots and committed settings after adjustment-only sequences.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible",
+        "application-only"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": true,
+      "cases": [
+        "neutral-unswung",
+        "boundary-swing-values",
+        "affected-steps-offset",
+        "unaffected-steps-nominal",
+        "clamp-at-limits",
+        "measured-timing",
+        "settings-guards"
+      ]
+    },
+    {
+      "id": "SPLASH-001",
+      "title": "Boot splash",
+      "shall": "Treat a custom boot splash screen as optional declared behavior: render a startup splash only when the candidate declares one, keep its drawing within the display controller and DMA limits, still reach the declared ready state and honor the startup-mode chords while it is shown, and draw no splash when none is declared.",
+      "verification": "Cold boot a declaring candidate and compare captured startup frame data against the declared splash, verify the declared ready state and GLOBAL and GLOBAL+PATTERN chords with the splash active; a candidate declaring no splash requires an explicit no-splash case.",
+      "profiles": [
+        "hardware",
+        "software",
+        "korg-compatible",
+        "application-only"
+      ],
+      "source": "board-contract",
+      "evidenceKinds": [
+        "hardware"
+      ],
+      "quantitative": false,
+      "cases": [
+        "declared-splash-rendered",
+        "display-command-bounds",
+        "ready-state-reached",
+        "startup-chords-honored",
+        "no-splash-when-undeclared"
       ]
     },
     {
