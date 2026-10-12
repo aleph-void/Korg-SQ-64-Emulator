@@ -14,9 +14,9 @@ const breakpoints = ref(''),
 const memory = ref('Read memory while paused.');
 const debug = computed(() => props.state.report?.debug);
 const enabled = computed(() => !!debug.value?.enabled);
-const disabled = computed(() => busy.value || !enabled.value || !!props.state.locked);
+const disabled = computed(() => busy.value || !enabled.value || !!props.state.terminated || !!props.state.locked);
 const stop = computed(() =>
-  props.state.report?.error
+  props.state.terminated ? 'Terminated · critical conformance test passed' : props.state.report?.error
     ? `Fault: ${props.state.report.error}`
     : debug.value?.stoppedAt != null
       ? `Breakpoint at ${hex(debug.value.stoppedAt)}`
@@ -107,7 +107,7 @@ const saveReport = () => act(async () => save((await props.request('state')).rep
         id="debug-enabled"
         type="checkbox"
         v-model="toggle"
-        :disabled="busy || !state.loaded || state.locked"
+        :disabled="busy || !state.loaded || state.terminated || state.locked"
         @change="setEnabled"
       />
       Enable debugging</label
@@ -122,7 +122,7 @@ const saveReport = () => act(async () => save((await props.request('state')).rep
             @click="step"
           >
             Step 1 instruction</button
-          ><button id="debug-save" :disabled="disabled" @click="saveReport">Save debug report</button>
+          ><button id="debug-save" :disabled="busy || !state.report || (state.locked && !state.terminated)" @click="saveReport">Save debug report</button>
         </div>
         <p id="debug-stop" role="status">{{ stop }}</p>
       </div>

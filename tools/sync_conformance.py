@@ -21,7 +21,7 @@ def main():
     document = catalog()
     metadata = dict(specVersion=document['version'], specSource=SPEC_SOURCE,
                     modelContractSha256=model_contract_digest(),
-                    requirements=[{'id': r['id'], 'verification': r['verification']}
+                    requirements=[{key: r[key] for key in ('id', 'verification', 'severity', 'unsafeWhen') if key in r}
                                   for r in document['requirements'] if 'image' in r['profiles']])
     target = ROOT / 'web/emulator/conformance'
     files = {

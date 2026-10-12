@@ -18,11 +18,12 @@ const route = ref('usb'),
   loading = ref(false);
 const imageName = ref(''),
   loadError = ref('');
-const controlsDisabled = computed(() => !state.value.loaded || !!state.value.locked || loading.value);
+const controlsDisabled = computed(() => !state.value.loaded || !!state.value.terminated || !!state.value.locked || loading.value);
 const interactionDisabled = computed(() => controlsDisabled.value || !!state.value.report?.board.poweredOff);
-const fileDisabled = computed(() => !!state.value.locked || loading.value);
+const fileDisabled = computed(() => !!state.value.terminated || !!state.value.locked || loading.value);
 const report = computed(() => state.value.report);
 const status = computed(() => {
+  if (state.value.terminated) return state.value.terminated.message;
   if (loading.value) return 'Loading firmware…';
   if (error.value) return error.value;
   if (!state.value.loaded) return 'Load your own firmware to begin.';
@@ -57,7 +58,12 @@ const queueRender = frameRenderer((snapshot) => {
   if (mounted) panelState.value = snapshot;
 });
 function update(snapshot) {
+  if (state.value.terminated && !snapshot.terminated) return;
   state.value = { ...snapshot };
+  if (snapshot.terminated) {
+    panelState.value = state.value;
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  }
   queueRender(state.value);
 }
 async function api(action, data = {}) {
@@ -170,6 +176,11 @@ onBeforeUnmount(() => {
     ><span class="badge" id="engine">CORTEX-M7 · WEBASSEMBLY</span>
   </header>
   <main>
+    <section v-if="state.terminated" id="safety-stop" class="safety-stop" role="alert" aria-live="assertive">
+      <h2>Do not flash this firmware to a real device.</h2>
+      <p>{{ state.terminated.message }}</p>
+      <p>Execution and MIDI are terminated for this session. Save the reports below to investigate the firmware.</p>
+    </section>
     <div class="heading">
       <div>
         <p class="eyebrow">BUILD. PLAY. INSPECT.</p>
@@ -258,9 +269,9 @@ onBeforeUnmount(() => {
         </dl>
         <button id="report" :disabled="!state.loaded" @click="save(report, 'sq64-execution.json')">
           Save execution report</button
-        ><button id="recording" @click="act(async () => save(await device.request('recording'), 'sq64-inputs.json'))">
+        ><button id="recording" :disabled="!!state.terminated" @click="act(async () => save(await device.request('recording'), 'sq64-inputs.json'))">
           Save input recording</button
-        ><label>Replay recording<input id="replay" type="file" accept=".json" @change="replay" /></label>
+        ><label>Replay recording<input id="replay" type="file" accept=".json" :disabled="controlsDisabled" @change="replay" /></label>
       </section>
       <section>
         <p class="eyebrow">MODEL COVERAGE</p>

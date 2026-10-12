@@ -1,13 +1,15 @@
 <script setup>
 import { computed, ref, watch } from 'vue';
 import { save } from '../src/download.js';
+import { criticalStop } from './conformance/safety.js';
 const props = defineProps({ state: { type: Object, required: true }, request: { type: Function, required: true } });
 const busy = ref(false),
   message = ref('');
 const report = computed(() => props.state.report?.conformance);
+const unsafe = computed(() => criticalStop(report.value));
 const summary = computed(() =>
   report.value
-    ? `${report.value.status.toUpperCase()} · ${report.value.counts.pass} passed · ${report.value.counts.fail} failed · ${report.value.counts['not-run']} not run`
+    ? `${unsafe.value ? 'UNSAFE' : report.value.status.toUpperCase()} · ${report.value.counts.pass} passed · ${report.value.counts.fail} failed · ${report.value.counts['not-run']} not run`
     : props.state.loaded
       ? 'Ready to validate the loaded file.'
       : 'Load firmware to validate its image.',
@@ -39,7 +41,7 @@ function saveReport() {
   <section class="validation" aria-label="Image conformance">
     <div class="toolbar">
       <div>
-        <button id="validate-image" :disabled="busy || !state.loaded || state.locked" @click="validate">
+        <button id="validate-image" :disabled="busy || !state.loaded || state.terminated || state.locked" @click="validate">
           {{ busy ? 'Validating…' : 'Validate Image' }}</button
         ><button id="validation-save" :disabled="busy || !report" @click="saveReport">Save validation report</button>
       </div>
@@ -49,7 +51,8 @@ function saveReport() {
       <a href="https://github.com/aleph-void/Korg-SQ-64-Custom-Firmware-Spec" target="_blank" rel="noopener noreferrer"
         >SQ-64 conformance spec</a
       >
-      image profile on the loaded file. Validation leaves execution and debugger settings untouched.
+      image profile on the loaded file. A passing critical damage detector immediately terminates the emulator.
+      Other results leave execution and debugger settings untouched.
     </p>
     <p id="validation-summary" role="status">{{ summary }}</p>
     <p id="validation-message" role="alert">{{ message }}</p>
@@ -72,9 +75,9 @@ function saveReport() {
             </tr>
           </thead>
           <tbody id="validation-rows">
-            <tr v-for="row in report.results" :key="row.id" :data-status="row.status">
+            <tr v-for="row in report.results" :key="row.id" :data-status="row.status" :data-unsafe="!!unsafe?.tests.some(test => test.id === row.id)">
               <td>{{ row.id }}</td>
-              <td>{{ row.status.toUpperCase() }}</td>
+              <td>{{ unsafe?.tests.some(test => test.id === row.id) ? 'PASS · UNSAFE' : row.status.toUpperCase() }}</td>
               <td>{{ row.detail }}</td>
             </tr>
           </tbody>

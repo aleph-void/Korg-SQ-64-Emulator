@@ -1,5 +1,6 @@
 """Portable loopback workbench. The browser never receives a host filesystem API."""
 import hashlib
+from copy import deepcopy
 import json
 import mimetypes
 from pathlib import Path
@@ -10,13 +11,14 @@ import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from .core import Machine
 from .image import Image, FLASH
-from .conformance import validate_image
+from .conformance import critical_stop, validate_image
 
 class Workbench:
     def __init__(self, content=None, mapping=None, debug=None):
         self.mapping = mapping; self.content = bytes(content) if content is not None else None; self.debug_options = debug
         self.machine = Machine(self.content, panel_mapping=mapping, debug=debug) if content else None
         self.conformance = None
+        self.terminated_state = None
         self.running = False; self.mode = 'normal'; self.lock = threading.RLock()
         self.stop = threading.Event(); self.midi = None; self.midi_error = None
         self.worker = threading.Thread(target=self.loop, daemon=True); self.worker.start()
@@ -32,6 +34,7 @@ class Workbench:
                     if self.machine.error or self.machine.breakpoint is not None or self.machine.debug.stopped_at is not None: self.running = False
 
     def reset(self, mode):
+        if self.terminated_state: raise ValueError(self.terminated_state['terminated']['message'])
         if mode not in ('normal', 'version', 'update'): raise ValueError('Unknown boot mode')
         if not self.machine: raise ValueError('Load firmware first')
         self.running = False; previous = self.machine
@@ -46,9 +49,27 @@ class Workbench:
         if self.midi: self.midi.output_index = 0
 
     def state(self):
+        if self.terminated_state: return deepcopy(self.terminated_state)
         if not self.machine: return {'loaded': False, 'running': False, 'midi': self.midi_error or 'disabled'}
         return {'loaded': True, 'running': self.running, 'mode': self.mode, 'report': dict(self.machine.report(), conformance=self.conformance),
                 'panel': self.machine.board.panel.snapshot(), 'midi': self.midi.status() if self.midi else self.midi_error or 'disabled'}
+
+    def validate(self):
+        # The request holds self.lock, so execution/MIDI cannot advance between
+        # receiving the report and latching the terminal state.
+        self.conformance = validate_image(self.content)
+        stop = critical_stop(self.conformance)
+        if stop:
+            self.running = False
+            snapshot = self.state()
+            snapshot.update(terminated=stop, midi='disconnected')
+            snapshot['report']['status'] = 'terminated'
+            self.terminated_state = deepcopy(snapshot)
+            self.stop.set()
+            self.machine = None
+            if self.midi:
+                midi, self.midi = self.midi, None
+                midi.close()
 
     def close(self):
         self.stop.set(); self.worker.join(timeout=5)
@@ -89,16 +110,19 @@ def make_server(workbench, port=0):
                 if not 0 < length <= 4 * 1024 * 1024: raise ValueError('Invalid request size')
                 raw = self.rfile.read(length)
                 with workbench.lock:
+                    if workbench.terminated_state and self.path != '/api/state':
+                        raise ValueError(workbench.terminated_state['terminated']['message'])
                     if self.path == '/api/load':
                         machine = Machine(raw, panel_mapping=workbench.mapping, debug=workbench.debug_options)
                         workbench.running = False; workbench.machine = machine; workbench.content = raw; workbench.mode = 'normal'
                         workbench.conformance = None
                     else:
                         data = json.loads(raw)
+                        if self.path == '/api/state': self.reply(200, workbench.state()); return
                         if not workbench.machine: raise ValueError('Load a firmware image first')
                         if self.path == '/api/run': workbench.running = True
                         elif self.path == '/api/pause': workbench.running = False
-                        elif self.path == '/api/validate': workbench.conformance = validate_image(workbench.content)
+                        elif self.path == '/api/validate': workbench.validate()
                         elif self.path == '/api/step': workbench.running = False; workbench.machine.run(min(100000, max(1, int(data.get('instructions', 1)))))
                         elif self.path == '/api/debug':
                             workbench.machine.debug.configure(**data); workbench.running = False

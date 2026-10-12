@@ -9,6 +9,7 @@ import { save } from './download.js';
 
 const version = __APP_VERSION__;
 const emulator = new BrowserEmulator();
+const safetyStop = shallowRef(null);
 window.sq64Emulator = emulator;
 let access,
   session,
@@ -174,6 +175,7 @@ async function connectEmulator() {
   status.value = 'Emulator connected. Run firmware in normal mode for backups or update mode for installation.';
 }
 function emulatorFault(event) {
+  if (emulator.terminated) safetyStop.value = emulator.terminated;
   if (emulatorSelected) {
     closeSession();
     status.value = 'Emulator stopped: ' + event.detail;
@@ -302,6 +304,11 @@ onBeforeUnmount(() => {
     ><span class="local"><i></i> Files stay on this computer</span>
   </header>
   <main>
+    <section v-if="safetyStop" id="emulator-safety-stop" class="safety-stop" role="alert" aria-live="assertive">
+      <h2>Do not flash this firmware to a real device.</h2>
+      <p>{{ safetyStop.message }}</p>
+      <p>Loaded file SHA-256: {{ safetyStop.imageSha256 }}</p>
+    </section>
     <div class="intro">
       <div>
         <p class="eyebrow">YOUR SEQUENCER. YOUR FIRMWARE.</p>
@@ -331,7 +338,7 @@ onBeforeUnmount(() => {
           >Global MIDI channel<select id="channel" v-model.number="channel" :disabled="locked">
             <option v-for="number in 16" :key="number" :value="number - 1">{{ number }}</option>
           </select></label
-        ><button id="emulated" class="primary" :disabled="locked" @click="connectEmulator">
+        ><button id="emulated" class="primary" :disabled="locked || !!safetyStop" @click="connectEmulator">
           Connect browser emulator</button
         ><button id="demo" class="quiet" :disabled="locked" @click="connectDemo">Try a simulated device</button>
         <p class="hint">

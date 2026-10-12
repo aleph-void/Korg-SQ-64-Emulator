@@ -7,3 +7,5 @@
 #browser-workbench { margin-top: 32px; border: 1px solid var(--border, #1e1e2e); border-radius: 12px; background: #0a0a0f; }
 #browser-workbench summary { padding: 20px; cursor: pointer; color: #e4e4e7; font-weight: 600; }
 #emulator-frame { display: block; width: 100%; height: 1020px; border: 0; }
+
+.safety-stop{margin:20px 0;padding:20px;border:2px solid #f87171;border-radius:8px;background:#301419}.safety-stop h2,.safety-stop p{color:#fecaca}.validation tr[data-unsafe=true] td:nth-child(2){color:#f87171;font-weight:700}

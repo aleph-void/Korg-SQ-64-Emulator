@@ -29,7 +29,10 @@ export async function validateImage(input) {
     });
     check('PKG-005', sums.every(n => n === 0), 'Four additive halfword checksums: ' + sums.map(n => '0x' + n.toString(16)).join(', '));
   }
-  const results = spec.requirements.map(r => checks.get(r.id) || {id: r.id, status: 'not-run', detail: r.verification});
+  const results = spec.requirements.map(r => ({
+    ...Object.fromEntries(['severity', 'unsafeWhen'].filter(key => key in r).map(key => [key, r[key]])),
+    ...(checks.get(r.id) || {id: r.id, status: 'not-run', detail: r.verification}),
+  }));
   const counts = Object.fromEntries(['pass', 'fail', 'not-run'].map(status => [status, results.filter(r => r.status === status).length]));
   return {
     format: 'sq64-conformance-report', version: 2, specVersion: spec.specVersion,

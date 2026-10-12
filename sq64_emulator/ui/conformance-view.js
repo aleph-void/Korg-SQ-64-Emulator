@@ -1,11 +1,10 @@
-// Kept identical in the browser and native workbench distributions.
 export function conformanceView({request, save}) {
   const $ = id => document.getElementById(id);
   let state, busy = false, rendered;
   function render(next) {
     state = next;
     const report = state?.report?.conformance;
-    $('validate-image').disabled = busy || !state?.loaded || !!state?.locked;
+    $('validate-image').disabled = busy || !state?.loaded || !!state?.terminated || !!state?.locked;
     $('validate-image').textContent = busy ? 'Validating…' : 'Validate Image';
     $('validation-save').disabled = busy || !report;
     const key = JSON.stringify(report);
@@ -13,7 +12,7 @@ export function conformanceView({request, save}) {
     rendered = key;
     $('validation-results').hidden = !report;
     $('validation-summary').textContent = report
-      ? `${report.status.toUpperCase()} · ${report.counts.pass} passed · ${report.counts.fail} failed · ${report.counts['not-run']} not run`
+      ? `${state?.terminated ? 'UNSAFE' : report.status.toUpperCase()} · ${report.counts.pass} passed · ${report.counts.fail} failed · ${report.counts['not-run']} not run`
       : state?.loaded ? 'Ready to validate the loaded file.' : 'Load firmware to validate its image.';
     $('validation-message').textContent = '';
     if (!report) return;
@@ -22,7 +21,9 @@ export function conformanceView({request, save}) {
     $('validation-format').hidden = report.results.find(r => r.id === 'PKG-001')?.status === 'pass';
     $('validation-rows').replaceChildren(...report.results.map(row => {
       const tr = document.createElement('tr'); tr.dataset.status = row.status;
-      for (const value of [row.id, row.status.toUpperCase(), row.detail]) {
+      const unsafe = row.severity === 'critical' && row.unsafeWhen === 'pass' && row.status === 'pass';
+      tr.dataset.unsafe = String(unsafe);
+      for (const value of [row.id, unsafe ? 'PASS · UNSAFE' : row.status.toUpperCase(), row.detail]) {
         const cell = document.createElement('td'); cell.textContent = value; tr.append(cell);
       }
       return tr;

@@ -24,6 +24,10 @@ Pad `n` (1–16) uses row `(n−1) mod 8`. First/second banks use bits A:26/24, 
 
 The encoder bit pairs start at tempo:4, swing:6, param1:12, param2:14, param3:8 and param4:10. A positive turn follows Gray phases `00 → 01 → 11 → 10 → 00`; each UI detent queues two edges. Direction reversals retain their order. Edges are paced across scan-row changes so firmware can observe them. Debouncing and acceleration remain firmware responsibilities. Interactive input sends one detent per 40 ms of virtual time, sharing the interval across knobs to avoid unintentional firmware acceleration. Queued detents remain between a held button’s press and release. Recorded events retain the actual virtual schedule; raw machine events and replay are unchanged. Wheel movement uses 40 CSS pixels per step (16 pixels per line, 120 per page); dragging uses 12 pixels per step. Shift multiplies these distances by four.
 
+Direction reversals retain fractional drag and wheel movement, so reversing a gesture unwinds the same detents rather than discarding its partial steps. Firmware still determines parameter ranges and value scaling.
+
+The panel SHIFT button latches or releases on double-click (or two Enter/Space presses). Single clicks send no SHIFT input; each double-click sends only the final held/released transition, avoiding extra taps that firmware could interpret as its own latch gesture. Four presses within a rolling two-second window show a tooltip explaining the double-click gesture. Shift-click continues to latch other buttons. Reset clears the browser panel's latch state.
+
 ## Serial scans
 
 A DMA frame has eight bytes. Its first 15 serial clocks precede the 32 sampled input bits. The input bits are serialized in byte order from the low byte, with bits transmitted most significant first within each byte. TX byte 2 supplies the one-hot row select. The next scan samples that selected row.

@@ -5,8 +5,9 @@ import {InteractiveInputs} from './input.js';
 import {ExecutionSlice, FRAME_INTERVAL} from './pacing.js';
 import {sha256} from '../src/protocol.js';
 import {validateImage} from './conformance/validate.js';
+import {criticalStop} from './conformance/safety.js';
 let engine, machine, inputs, running = false, mode = 'normal', options = {transport: 'usb'}, lastState = 0, statePending = false;
-let loadedBytes, conformance = null;
+let loadedBytes, conformance = null, terminated = false;
 let execution = new ExecutionSlice();
 const onMidi = data => postMessage({type: 'midi', data});
 const state = () => machine ? {loaded: true, running, mode, midi: 'In-browser MIDI · ' + options.transport.toUpperCase(), report: {...machine.report(), conformance}, panel: {...machine.board.panel.snapshot(), outputs: machine.board.outputLevels()}} : {loaded: false, running: false};
@@ -29,7 +30,23 @@ async function action(name, data) {
   if (name === 'run') running = true;
   else if (name === 'poweroff') { machine.event({type: 'power', down: true}); running = true; }
   else if (name === 'pause') running = false;
-  else if (name === 'validate') conformance = await validateImage(loadedBytes);
+  else if (name === 'validate') {
+    conformance = await validateImage(loadedBytes);
+    const stop = criticalStop(conformance);
+    if (stop) {
+      // Stop before yielding to the execution pump or any queued action.
+      running = false; terminated = true;
+      const snapshot = state();
+      snapshot.terminated = stop; snapshot.report.status = 'terminated';
+      try { machine.close(); }
+      finally {
+        machine = null;
+        postMessage({type: 'terminated', state: snapshot});
+        self.close();
+      }
+      return snapshot;
+    }
+  }
   else if (name === 'step') { running = false; machine.run(data.instructions || 1000); }
   else if (name === 'debug') { machine.configureDebug(data); execution = new ExecutionSlice(); running = false; }
   else if (name === 'debug-memory') {
@@ -59,13 +76,16 @@ async function action(name, data) {
 }
 let sequence = Promise.resolve();
 self.onmessage = ({data: message}) => {
+  if (terminated) return;
   if (message.type === 'state-ack') { statePending = false; return; }
   sequence = sequence.then(async () => {
-    try { const result = await action(message.action, message.data); postMessage({id: message.id, result}); notify(); }
+    if (terminated) return;
+    try { const result = await action(message.action, message.data); if (!terminated) { postMessage({id: message.id, result}); notify(); } }
     catch (error) { postMessage({id: message.id, error: String(error.message || error)}); }
   });
 };
 function pump() {
+  if (terminated) return;
   try {
     if (running && machine) {
       const start = performance.now();

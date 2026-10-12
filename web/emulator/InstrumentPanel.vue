@@ -16,7 +16,7 @@ let context,
 const displayedBytes = new Uint8Array(8192);
 const panel = computed(() => props.state.panel);
 const poweredOff = computed(() => !!props.state.report?.board.poweredOff);
-const disabled = computed(() => !props.state.loaded || props.state.locked || poweredOff.value);
+const disabled = computed(() => !props.state.loaded || props.state.terminated || props.state.locked || poweredOff.value);
 const smooth = computed(
   () =>
     props.state.loaded &&
@@ -41,7 +41,7 @@ const matrix = [...'ABCD'].flatMap((track) => [
   { control: `track${track}`, label: track, pad: false },
   ...Array.from({ length: 16 }, (_, i) => ({ control: track + (i + 1), label: String(i + 1), pad: true })),
 ]);
-const outputLevel = (id) => (props.state.loaded && !poweredOff.value ? panel.value?.outputs?.[id] || 0 : 0);
+const outputLevel = (id) => (props.state.loaded && !props.state.terminated && !poweredOff.value ? panel.value?.outputs?.[id] || 0 : 0);
 const buttonProps = (control) => ({
   control,
   disabled: disabled.value,
@@ -156,7 +156,7 @@ onBeforeUnmount(() => document.removeEventListener('fullscreenchange', fullscree
       />
     </div>
     <div class="panel-foot">
-      <span>Hold buttons with a pointer or keyboard. Shift-click latches a button.</span>
+      <span>Double-click SHIFT to latch or release it. Hold other buttons with a pointer or keyboard; Shift-click latches them.</span>
       <span id="encoder-help"
         >Relative encoders: drag vertically, scroll, or use ← / →. Shift gives finer drag/scroll. The firmware display
         shows the value; the knob angle has no zero or reset position.</span

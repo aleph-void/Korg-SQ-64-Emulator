@@ -85,3 +85,39 @@ test('updater keeps acknowledgements and selected files when switching Vue tabs,
   await expect(page.locator('#file-info')).toHaveText('No firmware selected');
   await expect(page.locator('#update-start')).toBeDisabled();
 });
+
+test('parameter knob out-and-back drags and wheel turns do not drift on reversal', async ({page}) => {
+  await page.goto('/'); await page.locator('#browser-workbench summary').click();
+  const panel = page.frameLocator('#emulator-frame');
+  await panel.locator('#image').setInputFiles(firmware());
+  await page.evaluate(() => {
+    const device = window.sq64Emulator, request = device.request.bind(device);
+    window.encoderRequests = [];
+    device.request = (action, data) => {
+      if (action === 'event') { window.encoderRequests.push(data); return Promise.resolve({}); }
+      return request(action, data);
+    };
+  });
+  for (const name of ['param1', 'param2', 'param3', 'param4']) {
+    const knob = panel.locator(`[data-encoder=${name}]`);
+    await expect(knob).toBeEnabled(); await knob.scrollIntoViewIfNeeded();
+    const box = await knob.boundingBox();
+    const x = box.x + box.width / 2, y = box.y + box.height / 2;
+    await page.mouse.move(x, y); await page.mouse.down();
+    let position = y;
+    for (const distance of [15, -12, 9, -12]) {
+      position -= distance;
+      await page.mouse.move(x, position);
+    }
+    await page.mouse.up();
+    const drag = await page.evaluate(name => window.encoderRequests.filter(row => row.control === name).map(row => row.delta), name);
+    expect(drag.length).toBeGreaterThan(0); expect(drag.reduce((sum, delta) => sum + delta, 0)).toBe(0);
+    await page.evaluate(() => { window.encoderRequests = []; });
+    await knob.evaluate(element => {
+      for (const deltaY of [-50, 40, -30, 40]) element.dispatchEvent(new WheelEvent('wheel', {deltaY, cancelable: true}));
+    });
+    const wheel = await page.evaluate(() => window.encoderRequests.map(row => row.delta));
+    expect(wheel.length).toBeGreaterThan(0); expect(wheel.reduce((sum, delta) => sum + delta, 0)).toBe(0);
+    await page.evaluate(() => { window.encoderRequests = []; });
+  }
+});

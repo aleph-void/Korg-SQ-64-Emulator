@@ -15,14 +15,15 @@ export function debugView({request, save}) {
     state = next;
     const debug = state?.report?.debug, enabled = !!debug?.enabled;
     if (!busy) $('debug-enabled').checked = enabled;
-    $('debug-enabled').disabled = busy || !state?.loaded || !!state?.locked;
+    $('debug-enabled').disabled = busy || !state?.loaded || !!state?.terminated || !!state?.locked;
     $('debug-tools').hidden = !enabled;
-    for (const element of $('debug-tools').querySelectorAll('input, button')) element.disabled = busy || !enabled || !!state?.locked;
+    for (const element of $('debug-tools').querySelectorAll('input, button')) element.disabled = busy || !enabled || !!state?.terminated || !!state?.locked;
+    $('debug-save').disabled = busy || !state?.report || (!!state?.locked && !state?.terminated);
     if (!enabled) { $('debug-memory').textContent = 'Read memory while paused.'; lastConfig = undefined; return; }
     const paused = !state.running;
     $('debug-step').disabled ||= !!state.report.error || !!state.report.board.poweredOff;
     $('debug-read').disabled ||= !paused;
-    $('debug-stop').textContent = state.report.error ? `Fault: ${state.report.error}` : debug.stoppedAt !== null ? `Breakpoint at ${hex(debug.stoppedAt)}` : state.running ? 'Running' : 'Paused';
+    $('debug-stop').textContent = state.terminated ? 'Terminated · critical conformance test passed' : state.report.error ? `Fault: ${state.report.error}` : debug.stoppedAt !== null ? `Breakpoint at ${hex(debug.stoppedAt)}` : state.running ? 'Running' : 'Paused';
     $('debug-points').textContent = debug.breakpoints.map(hex).join(', ') || 'No breakpoints';
     $('debug-registers').textContent = Object.entries(debug.registers).map(([name, value]) => `${name.padEnd(9)} ${hex(value)}`).join('\n');
     $('debug-trace').textContent = debug.trace.map(row => `${String(row.tick).padStart(8)}  ${hex(row.pc)}  ${bytes(row.bytes)}`).join('\n') || 'No trace entries';

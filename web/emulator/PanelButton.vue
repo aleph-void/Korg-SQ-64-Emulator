@@ -1,5 +1,5 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { onBeforeUnmount, ref, watch } from 'vue';
 const props = defineProps({
   control: String,
   label: String,
@@ -11,8 +11,23 @@ const props = defineProps({
 });
 const emit = defineEmits(['input']);
 const pressed = ref(props.down),
-  latched = ref(false);
-let held = false;
+  latched = ref(false),
+  showTip = ref(false);
+let held = false, presses = [], tipTimer, lastKeyPress = -Infinity;
+function clearTip() { clearTimeout(tipTimer); showTip.value = false; presses = []; }
+function notePress() {
+  if (props.control !== 'shift') return;
+  const now = performance.now();
+  presses = presses.filter(time => now - time <= 2000);
+  presses.push(now);
+  if (presses.length > 3) {
+    showTip.value = true;
+    clearTimeout(tipTimer);
+    tipTimer = setTimeout(clearTip, 6000);
+  }
+}
+onBeforeUnmount(clearTip);
+watch(() => props.disabled, clearTip);
 watch(
   () => props.down,
   (value) => {
@@ -22,7 +37,9 @@ watch(
 watch(
   () => props.resetKey,
   () => {
+    clearTip();
     held = false;
+    lastKeyPress = -Infinity;
     latched.value = false;
     pressed.value = props.down;
   },
@@ -36,18 +53,40 @@ function press(event) {
   if (props.disabled) return;
   event.preventDefault();
   event.currentTarget.setPointerCapture(event.pointerId);
+  notePress();
+  // SHIFT is a double-click toggle. Do not also send the constituent taps:
+  // firmware can interpret those as its own double-tap latch gesture.
+  if (props.control === 'shift') return;
   if (event.shiftKey) {
     latched.value = !latched.value;
     send(latched.value);
-  } else send(true);
+  } else if (!latched.value) send(true);
+}
+function doubleClick(event) {
+  if (props.disabled || props.control !== 'shift') return;
+  event.preventDefault();
+  lastKeyPress = -Infinity;
+  latched.value = !latched.value;
+  send(latched.value);
 }
 function release() {
   if (!latched.value && held) send(false);
 }
 function key(event, down) {
+  if (event.key === 'Escape') clearTip();
   if (props.disabled || ![' ', 'Enter'].includes(event.key)) return;
   event.preventDefault();
-  if (!event.repeat) send(down);
+  if (!event.repeat) {
+    if (props.control === 'shift') {
+      if (down) {
+        notePress();
+        const now = performance.now();
+        if (now - lastKeyPress <= 500) doubleClick(event);
+        else lastKeyPress = now;
+      }
+    } else if (down) { if (!latched.value) send(true); }
+    else release();
+  }
 }
 </script>
 
@@ -59,10 +98,13 @@ function key(event, down) {
     :aria-label="pad ? `Pad ${control}` : label"
     :aria-pressed="pressed"
     :data-latched="latched"
+    :aria-describedby="showTip ? 'shift-latch-tip' : undefined"
+    :title="control === 'shift' ? 'Double-click SHIFT, or press Enter twice, to latch or release it.' : undefined"
     :data-led="level"
     :aria-description="level > 0 ? 'Firmware indicator lit' : 'Firmware indicator off'"
     :style="{ '--led-intensity': level / 255 }"
     @pointerdown="press"
+    @dblclick="doubleClick"
     @pointerup="release"
     @pointercancel="release"
     @lostpointercapture="release"
@@ -70,5 +112,6 @@ function key(event, down) {
     @keyup="key($event, false)"
   >
     {{ label }}
+    <span v-if="showTip" id="shift-latch-tip" class="shift-tip" role="tooltip">Double-click SHIFT to toggle its latched state.</span>
   </button>
 </template>

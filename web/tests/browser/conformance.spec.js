@@ -18,6 +18,84 @@ async function downloaded(page, trigger) {
   return JSON.parse(Buffer.concat(chunks).toString());
 }
 
+async function markCriticalTest(page, id) {
+  // Model a future spec update in the served worker catalog, without changing
+  // the pinned production spec or introducing a runtime result-injection API.
+  let patched = false;
+  await page.route('**/assets/worker-*.js', async route => {
+    const response = await route.fetch(), source = await response.text();
+    const pattern = new RegExp(`(id:\\s*[\x60"']${id}[\x60"'],\\s*)(verification:)`, 'g');
+    const body = source.replace(pattern, '$1severity:"critical",unsafeWhen:"pass",$2');
+    expect(body).not.toBe(source);
+    patched = true;
+    await route.fulfill({response, body});
+  });
+  return () => expect(patched).toBe(true);
+}
+
+for (const embedded of [false, true]) test(`critical pass terminates the actual worker and retains diagnostics (${embedded ? 'embedded' : 'standalone'})`, async ({page}) => {
+  const checkPatched = await markCriticalTest(page, 'PKG-001');
+  await page.addInitScript(() => {
+    const Worker = window.Worker;
+    window.workerTerminations = 0;
+    window.Worker = class extends Worker {
+      terminate() { window.workerTerminations++; return super.terminate(); }
+    };
+  });
+  await page.goto(embedded ? '/' : '/emulator/');
+  if (embedded) await page.locator('#browser-workbench summary').click();
+  const panel = embedded ? page.frameLocator('#emulator-frame') : page;
+  await panel.locator('#image').setInputFiles(firmware());
+  await panel.getByText('Developer debugging', {exact: true}).click();
+  await panel.locator('#debug-enabled').check();
+  await panel.locator('#run').click();
+  await panel.locator('#validate-image').click();
+  await expect(panel.locator('#safety-stop')).toContainText('Do not flash this firmware to a real device.');
+  await expect(panel.locator('#safety-stop')).toContainText('PKG-001');
+  await expect(panel.locator('#validation-summary')).toContainText('UNSAFE');
+  await expect(panel.locator('#validation-rows tr[data-unsafe=true]')).toContainText('PASS · UNSAFE');
+  expect(await page.evaluate(() => window.workerTerminations)).toBe(1);
+  for (const id of ['run', 'step', 'reset', 'version', 'update', 'poweroff', 'image', 'validate-image', 'send-midi', 'replay', 'debug-enabled', 'debug-step', 'debug-read']) {
+    await expect(panel.locator('#' + id)).toBeDisabled();
+  }
+  await expect(panel.locator('[data-control]').first()).toBeDisabled();
+  const report = await downloaded(page, () => panel.locator('#validation-save').click());
+  expect(report.results[0]).toMatchObject({id: 'PKG-001', severity: 'critical', unsafeWhen: 'pass', status: 'pass'});
+  const execution = await downloaded(page, () => panel.locator('#report').click());
+  const debug = await downloaded(page, () => panel.locator('#debug-save').click());
+  expect(execution.status).toBe('terminated'); expect(debug).toEqual(execution);
+  expect(execution.conformance).toEqual(report);
+  if (embedded) {
+    const blocked = await page.evaluate(async () => {
+      const device = window.sq64Emulator;
+      const results = await Promise.allSettled(['run', 'step', 'reset', 'midi', 'load'].map(action => device.request(action)));
+      return {rejected: results.every(result => result.status === 'rejected'), worker: device.worker,
+        ports: [device.input.state, device.output.state], state: await device.request('state')};
+    });
+    expect(blocked.rejected).toBe(true); expect(blocked.worker).toBeNull();
+    expect(blocked.ports).toEqual(['disconnected', 'disconnected']);
+    expect(blocked.state.report).toEqual(execution);
+    await page.frames().find(frame => frame.url().includes('/emulator/')).goto('/emulator/');
+    await expect(panel.locator('#safety-stop')).toBeVisible();
+    await page.locator('#browser-workbench summary').click();
+    await expect(page.locator('#emulator-safety-stop')).toBeVisible();
+  }
+  checkPatched();
+});
+
+test('a critical detector that fails does not terminate execution', async ({page}) => {
+  const checkPatched = await markCriticalTest(page, 'PKG-005');
+  await page.goto('/emulator/');
+  await page.locator('#image').setInputFiles(firmware(true));
+  await page.locator('#run').click();
+  await page.locator('#validate-image').click();
+  await expect(page.locator('#validation-summary')).toContainText('FAIL');
+  await expect(page.locator('#safety-stop')).toHaveCount(0);
+  await expect(page.locator('#status')).toContainText('Running');
+  await expect(page.locator('#reset')).toBeEnabled();
+  checkPatched();
+});
+
 test('Validate Image preserves a stopped debugger and exports the exact loaded image checks', async ({page}) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await page.goto('/'); await page.locator('#browser-workbench summary').click();

@@ -1,3 +1,5 @@
+import {criticalStop} from './conformance/safety.js';
+
 class LocalPort extends EventTarget {
   constructor() { super(); this.state = 'disconnected'; }
   setState(state) { if (this.state !== state) { this.state = state; this.dispatchEvent(new Event('statechange')); } }
@@ -11,10 +13,16 @@ export class BrowserEmulator extends EventTarget {
     };
   }
   start() {
+    if (this.terminated) throw Error(this.terminated.message);
     if (this.worker) return;
     this.worker = new Worker(new URL('./worker.js', import.meta.url), {type: 'module'});
+    const worker = this.worker;
     this.worker.onerror = e => this.fault(e.message || 'Emulator worker failed');
     this.worker.onmessage = ({data: m}) => {
+      if (this.terminated || this.worker !== worker) return;
+      const snapshot = m.state || (typeof m.result?.loaded === 'boolean' ? m.result : null);
+      const stop = snapshot && (snapshot.terminated || criticalStop(snapshot.report?.conformance));
+      if (stop) { this.terminate(snapshot, stop); return; }
       if (m.type === 'midi') { const event = new Event('midimessage'); event.data = m.data; this.input.dispatchEvent(event); }
       else if (m.type === 'fault') this.fault(m.error);
       else if (m.type === 'state') {
@@ -29,16 +37,35 @@ export class BrowserEmulator extends EventTarget {
       }
     };
   }
+  terminate(snapshot, stop) {
+    if (this.terminated) return;
+    this.terminated = structuredClone(stop);
+    this.worker?.terminate(); this.worker = null;
+    this.loaded = false;
+    this.state = structuredClone({...snapshot, running: false, terminated: stop, locked: this.locked,
+      report: {...snapshot.report, status: 'terminated'}});
+    this.input.setState('disconnected'); this.output.setState('disconnected');
+    for (const p of this.pending.values()) {
+      clearTimeout(p.timer);
+      if (['validate', 'state'].includes(p.action)) p.resolve(structuredClone(this.state));
+      else p.reject(Error(stop.message));
+    }
+    this.pending.clear();
+    this.dispatchEvent(new CustomEvent('state', {detail: this.state}));
+    this.dispatchEvent(new CustomEvent('fault', {detail: stop.message}));
+  }
   fault(message) {
     this.input.setState('disconnected'); this.output.setState('disconnected');
     for (const p of this.pending.values()) { clearTimeout(p.timer); p.reject(Error(message)); } this.pending.clear();
     this.dispatchEvent(new CustomEvent('fault', {detail: message}));
   }
   request(action, data = {}) {
+    if (this.terminated) return action === 'state'
+      ? Promise.resolve(structuredClone(this.state)) : Promise.reject(Error(this.terminated.message));
     this.start(); const id = ++this.nextId;
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => { this.pending.delete(id); reject(Error('Emulator operation timed out')); }, 30000);
-      this.pending.set(id, {resolve, reject, timer}); this.worker.postMessage({id, action, data});
+      this.pending.set(id, {resolve, reject, timer, action}); this.worker.postMessage({id, action, data});
     });
   }
   setLocked(value) { this.locked = value; if (this.state) this.dispatchEvent(new CustomEvent('state', {detail: {...this.state, locked: value}})); }
