@@ -66,6 +66,10 @@ $('release').addEventListener('click', () => act(async () => { for (const contro
 window.addEventListener('blur', () => { for (const control of held) act(() => api('event', {type: 'button', control, down: false})); held.clear(); });
 $('send-midi').addEventListener('click', () => act(() => { const text = $('midi-bytes').value.trim(); if (!/^[0-9a-f]{2}(\s+[0-9a-f]{2})*$/i.test(text)) throw Error('Enter hexadecimal bytes separated by spaces'); return api('event', {type: 'midi', data: text.split(/\s+/).map(x => parseInt(x, 16))}); }));
 function save(data, name) { const a = document.createElement('a'), url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'})); a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 10000); }
+const panel = document.querySelector('.instrument');
+if (!panel.requestFullscreen) $('fullscreen').hidden = true;
+$('fullscreen').addEventListener('click', () => act(() => document.fullscreenElement ? document.exitFullscreen() : panel.requestFullscreen()));
+document.addEventListener('fullscreenchange', () => { $('fullscreen').textContent = document.fullscreenElement ? 'Exit full screen' : 'Full screen'; });
 $('report').addEventListener('click', () => { if (lastState?.loaded) save(lastState.report, 'sq64-execution.json'); });
 $('recording').addEventListener('click', () => act(async () => save(await device.request('recording'), 'sq64-inputs.json')));
 $('replay').addEventListener('change', () => act(async () => { const f = $('replay').files[0]; if (f) await api('replay', JSON.parse(await f.text())); }));
