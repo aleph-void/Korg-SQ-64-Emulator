@@ -29,7 +29,7 @@ Selecting a valid firmware image enables **Power on** without starting execution
 
 ## UI scripts
 
-Expand **UI scripts** below the instrument panel. Choose one of five **Example scripts** and click **Load example**, or start a **New script**. Examples cover transport buttons, a SHIFT/pad combination, encoder turns, version-mode startup, and explicit shutdown. They load editable templates without executing them. Adjust startup waits for your firmware and computer.
+Expand **UI scripts** below the instrument panel. Choose one of seven **Example scripts** and click **Load example**, or start a **New script**. Examples cover transport buttons, a SHIFT/pad combination, encoder turns, version-mode startup, explicit shutdown, and two regression exercises for confirmed vendor text-handling bugs. They load editable templates without executing them. See [the bug example guide](../docs/bug-script-examples.md) for required setup, the reference fixes, and what these scripts can demonstrate. Adjust startup waits for your firmware and computer.
 
 Use **Append action** to build a sequence, or edit/reorder/remove entries in the actions JSON editor. **Run script** executes the editor contents against the loaded firmware and shows progress. Buttons, encoder positions, firmware display, and LEDs update during execution through the normal emulator input path. Manual controls, debugger changes, image replacement, and updater/backup operations are locked during playback. Disable debugging before running a script.
 

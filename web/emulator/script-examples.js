@@ -1,4 +1,5 @@
 import { SCRIPT_FORMAT } from './scripts.js';
+import { BUG_SCRIPT_EXAMPLES } from './bug-script-examples.js';
 
 // Templates only: choosing one never runs it or changes the saved library.
 export const SCRIPT_EXAMPLES = [
@@ -40,4 +41,5 @@ export const SCRIPT_EXAMPLES = [
       { type: 'power-on', mode: 'normal' }, { type: 'wait', ms: 60000 }, { type: 'power-off' },
     ] },
   },
+  ...BUG_SCRIPT_EXAMPLES,
 ].map(example => ({ ...example, script: { format: SCRIPT_FORMAT, version: 1, ...example.script } }));

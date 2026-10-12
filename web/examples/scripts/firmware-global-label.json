@@ -1,0 +1,76 @@
+{
+  "format": "sq64-ui-script",
+  "version": 1,
+  "name": "Regression exercise: GLOBAL channel label",
+  "actions": [
+    {
+      "type": "press",
+      "control": "stop",
+      "ms": 150
+    },
+    {
+      "type": "press",
+      "control": "gate",
+      "ms": 150
+    },
+    {
+      "type": "press",
+      "control": "control",
+      "ms": 150
+    },
+    {
+      "type": "press",
+      "control": "A1",
+      "ms": 150
+    },
+    {
+      "type": "wait",
+      "ms": 1500
+    },
+    {
+      "type": "press",
+      "control": "A2",
+      "ms": 150
+    },
+    {
+      "type": "wait",
+      "ms": 1500
+    },
+    {
+      "type": "encoder",
+      "control": "param1",
+      "delta": 1
+    },
+    {
+      "type": "wait",
+      "ms": 1500
+    },
+    {
+      "type": "press",
+      "control": "A1",
+      "ms": 150
+    },
+    {
+      "type": "wait",
+      "ms": 1500
+    },
+    {
+      "type": "encoder",
+      "control": "param1",
+      "delta": -1
+    },
+    {
+      "type": "wait",
+      "ms": 1500
+    },
+    {
+      "type": "press",
+      "control": "A2",
+      "ms": 150
+    },
+    {
+      "type": "wait",
+      "ms": 1500
+    }
+  ]
+}

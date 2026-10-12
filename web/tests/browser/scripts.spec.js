@@ -110,7 +110,21 @@ test('scripts survive reload in IndexedDB, can be updated, exported, shared with
 
 test('example selection loads editable templates without executing or saving them', async ({ page }) => {
   const panel = await open(page);
-  await expect(panel.locator('#script-examples option')).toHaveCount(6);
+  await expect(panel.locator('#script-examples option')).toHaveCount(8);
+  for (const [id, name] of [['firmware-global-label', 'Regression exercise: GLOBAL channel label'],
+    ['firmware-short-label-queue', 'Regression exercise: short display labels']]) {
+    await panel.locator('#script-examples').selectOption(id);
+    await panel.locator('#script-load-example').click();
+    await expect(panel.locator('#script-name')).toHaveValue(name);
+    await expect(panel.locator('#script-example-description')).toContainText('normal boot');
+    await expect(panel.locator('#script-run')).toBeDisabled();
+    await expect(panel.locator('#script-library option')).toHaveCount(1);
+    const downloadPromise = page.waitForEvent('download');
+    await panel.locator('#script-export').click();
+    const downloaded = JSON.parse(await readFile(await (await downloadPromise).path(), 'utf8'));
+    expect(downloaded.name).toBe(name);
+    expect(downloaded.actions).toEqual(JSON.parse(await panel.locator('#script-actions').inputValue()));
+  }
   await panel.locator('#script-examples').selectOption('encoders');
   await panel.locator('#script-load-example').click();
   await expect(panel.locator('#script-name')).toHaveValue('Turn the encoders');

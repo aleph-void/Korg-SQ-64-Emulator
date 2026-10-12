@@ -1,0 +1,93 @@
+{
+  "format": "sq64-ui-script",
+  "version": 1,
+  "name": "Regression exercise: short display labels",
+  "actions": [
+    {
+      "type": "press",
+      "control": "stop",
+      "ms": 150
+    },
+    {
+      "type": "press",
+      "control": "gate",
+      "ms": 150
+    },
+    {
+      "type": "wait",
+      "ms": 750
+    },
+    {
+      "type": "encoder",
+      "control": "tempo",
+      "delta": 1
+    },
+    {
+      "type": "wait",
+      "ms": 750
+    },
+    {
+      "type": "encoder",
+      "control": "swing",
+      "delta": 1
+    },
+    {
+      "type": "wait",
+      "ms": 750
+    },
+    {
+      "type": "encoder",
+      "control": "tempo",
+      "delta": -1
+    },
+    {
+      "type": "wait",
+      "ms": 750
+    },
+    {
+      "type": "encoder",
+      "control": "swing",
+      "delta": -1
+    },
+    {
+      "type": "wait",
+      "ms": 750
+    },
+    {
+      "type": "encoder",
+      "control": "tempo",
+      "delta": 1
+    },
+    {
+      "type": "wait",
+      "ms": 750
+    },
+    {
+      "type": "encoder",
+      "control": "swing",
+      "delta": -1
+    },
+    {
+      "type": "wait",
+      "ms": 750
+    },
+    {
+      "type": "encoder",
+      "control": "tempo",
+      "delta": -1
+    },
+    {
+      "type": "wait",
+      "ms": 750
+    },
+    {
+      "type": "encoder",
+      "control": "swing",
+      "delta": 1
+    },
+    {
+      "type": "wait",
+      "ms": 1500
+    }
+  ]
+}
