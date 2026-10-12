@@ -492,7 +492,15 @@ onBeforeUnmount(() => {
       ><span
         ><a href="LICENSE" target="_blank" rel="noopener">GPLv2 license</a> ·
         <a href="https://github.com/aleph-void/Korg-SQ-64-Emulator" target="_blank" rel="noopener noreferrer"
-          >Source code</a
+          >Emulator source</a
+        >
+        ·
+        <a href="https://github.com/aleph-void/Korg-SQ-64-Custom-Firmware-Spec" target="_blank" rel="noopener noreferrer"
+          >Firmware spec</a
+        >
+        ·
+        <a href="https://github.com/aleph-void/Korg-SQ-64-Custom-Firmware-Repo" target="_blank" rel="noopener noreferrer"
+          >Firmware repository</a
         >
         · <a href="vendor/unicorn-arm-source.tar.gz">Unicorn source</a></span
       >

@@ -131,8 +131,15 @@ async function run() {
   } finally { playing.value = false; controller = undefined; }
 }
 function stop() { controller?.abort(new DOMException('Script stopped', 'AbortError')); }
-onMounted(refresh);
-onBeforeUnmount(stop);
+onMounted(() => {
+  refresh();
+  // The firmware repository list imports a loaded image's published UI scripts.
+  window.addEventListener('sq64-scripts-changed', refresh);
+});
+onBeforeUnmount(() => {
+  stop();
+  window.removeEventListener('sq64-scripts-changed', refresh);
+});
 </script>
 
 <template>

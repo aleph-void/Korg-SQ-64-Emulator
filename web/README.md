@@ -1,6 +1,6 @@
 # Aleph Void SQ-64 web app
 
-The updater and browser emulator use Vue 3 single-file components, compiled by Vite. Use Node 20.19+ or 22.12+ and install dependencies before developing or building. Serve the built `dist/` directory over HTTPS or localhost; opening `index.html` as a `file:` URL does not support module workers. The embedded emulator communicates directly with the updater using in-process MIDI-style ports. It neither requests Web MIDI permission nor creates an operating-system MIDI device. Real hardware uses Web MIDI with SysEx permission.
+The updater and browser emulator use Vue 3 single-file components, compiled by Vite. Use Node 24 or 26 and install dependencies before developing or building. Serve the built `dist/` directory over HTTPS or localhost; opening `index.html` as a `file:` URL does not support module workers. The embedded emulator communicates directly with the updater using in-process MIDI-style ports. It neither requests Web MIDI permission nor creates an operating-system MIDI device. Real hardware uses Web MIDI with SysEx permission.
 
 ```sh
 npm ci
@@ -30,6 +30,27 @@ Selecting a valid firmware image enables **Power on** without starting execution
 To submit a second image to executing firmware, choose **Update mode**, expand **Send a second firmware image**, select a complete `.VSB`, and choose **Send update firmware**. This works in the standalone and embedded workbenches without connecting the outer updater or requesting Web MIDI. The second file is validated separately and sent through the emulated MIDI connection; selecting or sending it does not replace/reset the booted image. USB transfers wait up to two minutes for enumeration, then allow 30 seconds for each updater reply. The original integration probe uses its DIN transport instead. Same-version or older updates require the explicit reinstall/downgrade option.
 
 Progress ends when all packets are acknowledged, not when installation is proven complete. Inspect the emulator display before restarting. **Stop transfer** cancels remaining packets and leaves any partial staging writes in place; failed transfers are not retried. Once the final packet has been submitted, stopping the host cannot cancel programming already started by firmware. Manual controls, scripts, debugger changes, and the outer updater/backup controls are locked during transfer. Critical flash-safety monitoring remains active. An explicitly selected VSB and a complete ordered transfer permit the corresponding internal/SPI firmware installation, including its sector erases; other protected writes remain blocked. Update mode alone grants no exception. This applies to the separate emulator picker, scripts, and the outer updater connected to the browser emulator. The update file stays only in memory and must be selected again after reloading the page.
+
+## Firmware repository
+
+**Browse firmware repository** fetches the community registry's manifest from
+`https://sq64-custom-firmware.alephvoid.com/` — published by the
+[firmware registry pipeline](https://github.com/aleph-void/Korg-SQ-64-Custom-Firmware-Repo),
+which builds each listed image from a pinned public commit and publishes it only after the
+conformance image profile, a headless emulator execution with critical detectors armed, and UI
+script validation all pass. Nothing is fetched until the button is selected; the initial page
+load stays entirely local. Selecting an entry shows its description with links to the pinned
+source and its validation report, and **Load selected firmware** downloads the image, verifies
+its size and SHA-256 against the manifest, and loads it exactly like a local file — press
+**Power on** to start it. The emulator's critical flash-safety monitoring applies unchanged,
+and passing registry validation does not make an image safe to flash on a real device.
+
+When the entry ships emulator UI scripts, loading it also downloads each script, verifies its
+manifest SHA-256, validates it as script data, and saves it into the **UI scripts** library
+under a stable per-entry identity, so reloading the firmware updates the stored copies instead
+of duplicating them. A script failure never unloads the downloaded firmware; the status line
+reports it instead. The registry origin is the only non-local address in the app's
+`connect-src` policy, and downloads stay in browser memory like any other loaded image.
 
 ## UI scripts
 

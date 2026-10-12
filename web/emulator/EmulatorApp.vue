@@ -10,6 +10,7 @@ import ScriptPanel from './ScriptPanel.vue';
 import { runScript } from './scripts.js';
 import { submitFirmware } from './firmware-update.js';
 import { IMAGE_SIZE, parseVsb, sha256 } from '../src/protocol.js';
+import { REGISTRY_URL, fetchRegistry, fetchFirmware, importEntryScripts } from './registry.js';
 
 const sharedDevice = window.parent !== window && window.parent.sq64Emulator;
 const device = sharedDevice || new BrowserEmulator();
@@ -22,6 +23,8 @@ const route = ref('usb'),
   loading = ref(false);
 const imageName = ref(''),
   loadError = ref('');
+const repoEntries = shallowRef(null), repoSelected = ref(''), repoMessage = ref(''), repoBusy = ref(false);
+const repoEntry = computed(() => (repoEntries.value || []).find((entry) => entry.id === repoSelected.value));
 const updateImage = shallowRef(null), updateFileInfo = ref('No update firmware selected');
 const updateLoading = ref(false), updateOlder = ref(false), updateMessage = ref(''), updateProgress = ref(0);
 let updateController;
@@ -195,6 +198,51 @@ async function loadProbe() {
     loading.value = false;
   }
 }
+async function browseRepository() {
+  repoBusy.value = true;
+  repoMessage.value = 'Loading the firmware list…';
+  try {
+    const entries = await fetchRegistry();
+    repoEntries.value = entries;
+    if (!entries.some((entry) => entry.id === repoSelected.value)) repoSelected.value = entries[0]?.id || '';
+    repoMessage.value = entries.length
+      ? `${entries.length} validated firmware image${entries.length === 1 ? '' : 's'} available`
+      : 'The firmware repository lists no images yet';
+  } catch (failure) {
+    repoMessage.value = failure.message;
+  } finally {
+    repoBusy.value = false;
+  }
+}
+async function loadRepositoryFirmware() {
+  const entry = repoEntry.value;
+  if (!entry || fileDisabled.value) return;
+  loading.value = true;
+  error.value = '';
+  loadError.value = '';
+  try {
+    repoMessage.value = `Downloading ${entry.name}…`;
+    const image = await fetchFirmware(entry);
+    await load(image);
+    imageName.value = `${entry.name} · firmware repository`;
+    repoMessage.value = `Loaded ${entry.name}. Press Power on to start.`;
+  } catch (failure) {
+    error.value = loadError.value = failure.message;
+    repoMessage.value = failure.message;
+    loading.value = false;
+    return;
+  } finally {
+    loading.value = false;
+  }
+  if (!entry.scripts.length) return;
+  try {
+    const count = await importEntryScripts(entry);
+    window.dispatchEvent(new CustomEvent('sq64-scripts-changed'));
+    repoMessage.value = `Loaded ${entry.name} and imported ${count} UI script${count === 1 ? '' : 's'}. Press Power on to start.`;
+  } catch (failure) {
+    repoMessage.value = `Loaded ${entry.name}, but its UI scripts could not be imported: ${failure.message}`;
+  }
+}
 function reset(mode) {
   return act(async () => {
     await api('reset', { mode });
@@ -301,6 +349,37 @@ onBeforeUnmount(() => {
       The probe is original test firmware for this emulator. It stages incoming updates in emulated flash and returns
       synthetic backup data. It is not deployable SQ-64 firmware.
     </p>
+    <div class="firmware-repo">
+      <button id="repo-browse" :disabled="repoBusy" @click="browseRepository">
+        {{ repoEntries ? 'Refresh firmware repository' : 'Browse firmware repository' }}</button
+      ><template v-if="repoEntries && repoEntries.length">
+        <label
+          >Community firmware<select id="repo-list" v-model="repoSelected" :disabled="repoBusy || fileDisabled">
+            <option v-for="entry in repoEntries" :key="entry.id" :value="entry.id">{{ entry.name }}</option>
+          </select></label
+        ><button id="repo-load" :disabled="fileDisabled || !repoEntry" @click="loadRepositoryFirmware">
+          Load selected firmware
+        </button>
+      </template>
+      <p v-if="repoEntry" class="hint">
+        {{ repoEntry.description }}
+        <a :href="repoEntry.repo" target="_blank" rel="noopener noreferrer">Source at {{ repoEntry.ref?.slice(0, 12) }}</a
+        ><template v-if="repoEntry.validation">
+          · <a :href="REGISTRY_URL + repoEntry.validation" target="_blank" rel="noopener noreferrer">Validation report</a></template
+        ><template v-if="repoEntry.scripts.length">
+          · ships {{ repoEntry.scripts.length }} UI script{{ repoEntry.scripts.length === 1 ? '' : 's' }}, imported into UI
+          scripts below on load</template
+        >
+      </p>
+      <p v-if="repoEntries" class="hint">
+        Community images are built from pinned public sources and validated by the
+        <a href="https://github.com/aleph-void/Korg-SQ-64-Custom-Firmware-Repo" target="_blank" rel="noopener noreferrer"
+          >firmware repository</a
+        >
+        pipeline before publication. Passing validation does not make an image safe to flash on a real device.
+      </p>
+      <p id="repo-status" role="status" :hidden="!repoMessage">{{ repoMessage }}</p>
+    </div>
     <div class="toolbar">
       <div>
         <button id="run" :disabled="interactionDisabled" @click="act(() => api('run'))">Run</button
@@ -414,7 +493,15 @@ onBeforeUnmount(() => {
       ><span
         ><a href="../LICENSE" target="_blank" rel="noopener">GPLv2 license</a> ·
         <a href="https://github.com/aleph-void/Korg-SQ-64-Emulator" target="_blank" rel="noopener noreferrer"
-          >Source code</a
+          >Emulator source</a
+        >
+        ·
+        <a href="https://github.com/aleph-void/Korg-SQ-64-Custom-Firmware-Spec" target="_blank" rel="noopener noreferrer"
+          >Firmware spec</a
+        >
+        ·
+        <a href="https://github.com/aleph-void/Korg-SQ-64-Custom-Firmware-Repo" target="_blank" rel="noopener noreferrer"
+          >Firmware repository</a
         >
         · <a href="../vendor/unicorn-arm-source.tar.gz">Unicorn source</a></span
       >

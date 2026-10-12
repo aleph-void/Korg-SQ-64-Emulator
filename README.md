@@ -4,6 +4,12 @@ An independent Aleph Void firmware workbench. The Vue 3 updater, backup/restore 
 
 This is an **experimental board model**, not a hardware certification. The ARM CPU executes supplied firmware. The browser model connects all 64 pads, 21 other buttons, six encoders, LEDs and the display through modeled peripherals. Version and Update hold GLOBAL or GLOBAL+PATTERN at reset. USB enumeration, firmware installation and the panel paths have been exercised privately with stock 2.03 and custom 2.04. Analog outputs, electrical timing and arbitrary firmware remain outside that evidence. See [coverage and open work](docs/coverage.md).
 
+## Project repositories
+
+- [Korg-SQ-64-Emulator](https://github.com/aleph-void/Korg-SQ-64-Emulator) — this repository: the browser/native emulator, updater and backup/restore tools.
+- [Korg-SQ-64-Custom-Firmware-Spec](https://github.com/aleph-void/Korg-SQ-64-Custom-Firmware-Spec) — the conformance specification that **Validate Image** runs against.
+- [Korg-SQ-64-Custom-Firmware-Repo](https://github.com/aleph-void/Korg-SQ-64-Custom-Firmware-Repo) — the community firmware registry whose validated images the browser emulator can load.
+
 ## Run the browser app
 
 ```sh
@@ -12,7 +18,7 @@ npm ci
 npm run dev
 ```
 
-Open the printed localhost URL. Expand **Browser emulator**, load a caller-owned `.bin`, `.elf` or `.vsb`, run it, and choose **Connect browser emulator** in the updater. An original integration probe is available for a working updater/backup demonstration. It returns synthetic records and stages updates; **do not install it on hardware**.
+Open the printed localhost URL. Expand **Browser emulator**, load a caller-owned `.bin`, `.elf` or `.vsb`, run it, and choose **Connect browser emulator** in the updater. **Browse firmware repository** instead lists the [community firmware registry](https://github.com/aleph-void/Korg-SQ-64-Custom-Firmware-Repo)'s validated images on demand, verifies a chosen image against the published SHA-256, loads it, and imports any UI scripts it ships; see [the web app notes](web/README.md#firmware-repository). An original integration probe is available for a working updater/backup demonstration. It returns synthetic records and stages updates; **do not install it on hardware**.
 
 Both embedded and standalone browser emulators also provide **Send a second firmware image**. Boot the first image with **Update mode**, select a separate `.VSB`, and choose **Send update firmware**. UI scripts support the same transfer with a `firmware-update` action; see [the scripting guide](web/README.md#ui-scripts). Sending uses the running firmware's MIDI updater and leaves the booted image loaded. Existing critical flash guards still apply.
 
