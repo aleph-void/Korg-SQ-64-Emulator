@@ -18,6 +18,23 @@ const blankDisplay = new Uint8Array(8192);
 const panel = computed(() => props.state.panel);
 const poweredOff = computed(() => !!props.state.report?.board.poweredOff);
 const disabled = computed(() => !props.state.loaded || props.state.terminated || props.state.locked || poweredOff.value);
+const scriptTip = ref(false);
+let scriptTipTimer;
+function hideScriptTip() {
+  clearTimeout(scriptTipTimer);
+  scriptTip.value = false;
+}
+// Panel controls are disabled while a script plays, so pointer and wheel
+// gestures never reach them; catch the attempt here and say why.
+function blockedInput(event) {
+  const over = event.type === 'wheel' ? '.knobs' : '.knobs, .button-row, .matrix';
+  if (!props.state.scripting || !event.target.closest(over)) return;
+  if (event.cancelable) event.preventDefault();
+  scriptTip.value = true;
+  clearTimeout(scriptTipTimer);
+  scriptTipTimer = setTimeout(hideScriptTip, 5000);
+}
+watch(() => props.state.scripting, hideScriptTip);
 const smooth = computed(
   () =>
     props.state.loaded &&
@@ -80,11 +97,24 @@ onMounted(() => {
   canFullscreen.value = !!instrument.value.requestFullscreen;
   document.addEventListener('fullscreenchange', fullscreenChanged);
 });
-onBeforeUnmount(() => document.removeEventListener('fullscreenchange', fullscreenChanged));
+onBeforeUnmount(() => {
+  document.removeEventListener('fullscreenchange', fullscreenChanged);
+  clearTimeout(scriptTipTimer);
+});
 </script>
 
 <template>
-  <section ref="instrument" class="instrument" :class="{ 'smooth-leds': smooth }" aria-label="SQ-64 control panel">
+  <section
+    ref="instrument"
+    class="instrument"
+    :class="{ 'smooth-leds': smooth, scripting: state.scripting }"
+    aria-label="SQ-64 control panel"
+    @pointerdown.capture="blockedInput"
+    @wheel.capture="blockedInput"
+  >
+    <div v-if="scriptTip" id="script-lock-tip" role="status">
+      A script is running — panel controls are locked until it finishes. Use its Stop script button to interrupt.
+    </div>
     <div id="outputs" class="outputs" role="group" aria-label="CV and gate output indicators">
       <div
         v-for="group in OUTPUT_GROUPS"

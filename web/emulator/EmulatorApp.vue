@@ -33,7 +33,7 @@ const interactionDisabled = computed(() => controlsDisabled.value || !!state.val
 const fileDisabled = computed(() => !!state.value.terminated || !!state.value.locked || !!state.value.scripting || !!state.value.updating || loading.value || updateLoading.value);
 const controlState = computed(() => ({ ...state.value, locked: state.value.locked || state.value.scripting || state.value.updating || loading.value || updateLoading.value }));
 const updateDisabled = computed(() => interactionDisabled.value || !updateImage.value || state.value.mode !== 'update' || !!state.value.report?.debug?.enabled || !!state.value.report?.error);
-const instrumentState = computed(() => ({ ...panelState.value, locked: controlState.value.locked }));
+const instrumentState = computed(() => ({ ...panelState.value, locked: controlState.value.locked, scripting: !!state.value.scripting }));
 const report = computed(() => state.value.report);
 const status = computed(() => {
   if (state.value.terminated) return state.value.terminated.message;

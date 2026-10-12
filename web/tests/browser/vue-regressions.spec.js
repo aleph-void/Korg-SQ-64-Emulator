@@ -123,3 +123,25 @@ test('parameter knob out-and-back drags and wheel turns do not drift on reversal
     await page.evaluate(() => { window.encoderRequests = []; });
   }
 });
+
+test('script playback locks the panel and explains attempted knob and pad input', async ({page}) => {
+  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
+  const panel = page.frameLocator('#emulator-frame');
+  await panel.locator('#image').setInputFiles(firmware());
+  await expect(panel.locator('[data-encoder=param1]')).toBeEnabled();
+  await panel.locator('#ui-scripts summary').click();
+  await panel.locator('#script-actions').fill('[{"type":"power-on","mode":"normal"},{"type":"wait","ms":60000}]');
+  await panel.locator('#script-run').click();
+  await expect(panel.locator('[data-encoder=param1]')).toBeDisabled();
+  await expect(panel.locator('#script-lock-tip')).toBeHidden();
+  await panel.locator('[data-encoder=param1]').dispatchEvent('pointerdown');
+  await expect(panel.locator('#script-lock-tip')).toBeVisible();
+  await expect(panel.locator('#script-lock-tip')).toContainText('script is running');
+  await panel.locator('[data-control=A1]').dispatchEvent('pointerdown');
+  await expect(panel.locator('#script-lock-tip')).toBeVisible();
+  // Stopping the script clears the notice and unlocks the panel.
+  await panel.locator('#script-stop').click();
+  await expect(panel.locator('#script-lock-tip')).toBeHidden();
+  await expect(panel.locator('[data-encoder=param1]')).toBeEnabled();
+  await expect(panel.locator('[data-control=A1]')).toBeEnabled();
+});
