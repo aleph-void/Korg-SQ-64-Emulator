@@ -11,12 +11,13 @@ const name = ref('My UI script'), actions = ref('[]'), selected = ref(''), libra
 const message = ref(''), storageMessage = ref(''), busy = ref(false), playing = ref(false), progress = ref(0);
 const actionType = ref('press'), control = ref('play'), encoder = ref('tempo'), mode = ref('normal');
 const duration = ref(100), delta = ref(1), down = ref(true), midi = ref('90 3c 64');
+const allowOlder = ref(false);
 const exampleId = ref('');
 const example = computed(() => SCRIPT_EXAMPLES.find(item => item.id === exampleId.value));
 let controller;
 const editingDisabled = computed(() => busy.value || playing.value);
 const runDisabled = computed(() => editingDisabled.value || !props.state.loaded || props.state.locked || props.state.scripting ||
-  props.state.terminated || props.state.report?.error || props.state.report?.debug?.enabled || props.loading);
+  props.state.terminated || props.state.updating || props.state.report?.error || props.state.report?.debug?.enabled || props.loading);
 function draft() {
   let parsed;
   try { parsed = JSON.parse(actions.value); } catch { throw Error('Actions must be a valid JSON array'); }
@@ -98,6 +99,7 @@ function addAction() {
     const script = draft();
     const action = { type: actionType.value };
     if (action.type === 'power-on') action.mode = mode.value;
+    if (action.type === 'firmware-update') action.allowOlder = allowOlder.value;
     if (['wait', 'press'].includes(action.type)) action.ms = duration.value;
     if (['button', 'press'].includes(action.type)) action.control = control.value;
     if (action.type === 'button') action.down = down.value;
@@ -165,6 +167,7 @@ onBeforeUnmount(stop);
         <option value="press">Press button / pad</option><option value="button">Hold / release button / pad</option>
         <option value="encoder">Turn encoder</option><option value="wait">Wait</option>
         <option value="power-on">Power on</option><option value="power-off">Power off</option><option value="midi">Send MIDI</option>
+        <option value="firmware-update">Send update firmware</option>
       </select></label>
       <label v-if="['press', 'button'].includes(actionType)">Control<select id="script-control" v-model="control" :disabled="editingDisabled">
         <option v-for="item in SCRIPT_CONTROLS" :key="item" :value="item">{{ item }}</option>
@@ -181,6 +184,7 @@ onBeforeUnmount(stop);
         <option value="normal">Normal</option><option value="version">Version</option><option value="update">Update</option>
       </select></label>
       <label v-if="actionType === 'midi'">Hexadecimal MIDI bytes<input id="script-midi" v-model="midi" :disabled="editingDisabled" /></label>
+      <label v-if="actionType === 'firmware-update'"><input id="script-update-older" type="checkbox" v-model="allowOlder" :disabled="editingDisabled" />Allow reinstall / downgrade</label>
       <button id="script-add" type="submit" :disabled="editingDisabled">Append action</button>
     </form>
     <label>Actions (JSON array; edit, reorder, or remove entries here)
@@ -199,6 +203,7 @@ onBeforeUnmount(stop);
     <p class="hint">Scripts are stored in IndexedDB for this browser and site. Export a copy to move them elsewhere.
       Load firmware before playback and disable debugging. Add a startup wait for your firmware; first boot can take a minute or more.
       Power on resets immediately. Power off waits for firmware shutdown. Stop cancels remaining actions; held controls stay held,
-      except an interrupted timed press is released. Scripts contain no firmware or saved device data.</p>
+      except an interrupted timed press is released. Send update firmware uses the separate update VSB selection above;
+      its allowOlder setting is stored in the action. Stop also cancels an active transfer. Scripts contain no firmware or saved device data.</p>
   </details>
 </template>

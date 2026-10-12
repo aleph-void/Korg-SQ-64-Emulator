@@ -14,6 +14,8 @@ npm run dev
 
 Open the printed localhost URL. Expand **Browser emulator**, load a caller-owned `.bin`, `.elf` or `.vsb`, run it, and choose **Connect browser emulator** in the updater. An original integration probe is available for a working updater/backup demonstration. It returns synthetic records and stages updates; **do not install it on hardware**.
 
+Both embedded and standalone browser emulators also provide **Send a second firmware image**. Boot the first image with **Update mode**, select a separate `.VSB`, and choose **Send update firmware**. UI scripts support the same transfer with a `firmware-update` action; see [the scripting guide](web/README.md#ui-scripts). Sending uses the running firmware's MIDI updater and leaves the booted image loaded. Existing critical flash guards still apply.
+
 For a physical device, select **Enable MIDI access**, grant SysEx permission, and select the SQ-64 sequencer input/output. Firmware transfer uses update mode; backup uses normal mode. Files stay in browser memory. Transfer acknowledgement does not prove programming completion; the UI asks for device confirmation. After restoring, use the power button and wait for shutdown before restarting and reading back. The browser workbench has a **Power off** button for this sequence. Its startup buttons reset immediately; closing the page discards the emulator session. Restore acknowledgement alone does not prove persistence.
 
 ## Test

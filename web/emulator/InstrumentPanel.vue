@@ -14,6 +14,7 @@ let context,
   pixels,
   displayDrawn = false;
 const displayedBytes = new Uint8Array(8192);
+const blankDisplay = new Uint8Array(8192);
 const panel = computed(() => props.state.panel);
 const poweredOff = computed(() => !!props.state.report?.board.poweredOff);
 const disabled = computed(() => !props.state.loaded || props.state.terminated || props.state.locked || poweredOff.value);
@@ -26,11 +27,13 @@ const smooth = computed(
     !poweredOff.value,
 );
 const displayStatus = computed(() =>
-  panel.value?.displayFrames
-    ? `${panel.value.displayFrames} FRAME TRANSACTIONS`
-    : props.state.running
-      ? 'STARTING FIRMWARE…'
-      : 'WAITING FOR FIRMWARE',
+  poweredOff.value
+    ? 'POWERED OFF'
+    : panel.value?.displayFrames
+      ? `${panel.value.displayFrames} FRAME TRANSACTIONS`
+      : props.state.running
+        ? 'STARTING FIRMWARE…'
+        : 'WAITING FOR FIRMWARE',
 );
 const groups = {
   transport: ['tap', 'record', 'stop', 'play', 'control'],
@@ -50,7 +53,7 @@ const buttonProps = (control) => ({
   resetKey: props.resetKey,
 });
 function paint() {
-  const bytes = panel.value?.display;
+  const bytes = poweredOff.value ? blankDisplay : panel.value?.display;
   if (!context || !bytes) return;
   if (!displayDrawn || bytes.some((byte, i) => byte !== displayedBytes[i])) {
     displayPixels(bytes, pixels.data);

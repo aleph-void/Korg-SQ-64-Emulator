@@ -21,8 +21,9 @@ const firmware = shallowRef(null),
 const busy = ref(false),
   awaitingCompletion = ref(false),
   scripting = ref(false),
+  emulatorUpdating = ref(false),
   connected = ref(false);
-const locked = computed(() => busy.value || awaitingCompletion.value || scripting.value);
+const locked = computed(() => busy.value || awaitingCompletion.value || scripting.value || emulatorUpdating.value);
 const tab = ref('backup'),
   channel = ref(0),
   scope = ref('all');
@@ -46,7 +47,7 @@ const workbenchOpen = ref(false),
   workbench = ref(null),
   logElement = ref(null);
 watch(() => busy.value || awaitingCompletion.value, (value) => emulator.setLocked(value), { flush: 'sync' });
-function emulatorState(event) { scripting.value = !!event.detail.scripting; }
+function emulatorState(event) { scripting.value = !!event.detail.scripting; emulatorUpdating.value = !!event.detail.updating; }
 emulator.addEventListener('state', emulatorState);
 watch(logText, async () => {
   await nextTick();

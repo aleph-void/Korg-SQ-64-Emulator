@@ -27,15 +27,28 @@ These are relative encoders. Their angle shows accumulated input steps, not the 
 
 Selecting a valid firmware image enables **Power on** without starting execution. Loading status and errors appear beside the file picker and in the execution section; a failed replacement keeps the previously loaded image available. The file picker permits selecting the same file again after an error.
 
+To submit a second image to executing firmware, choose **Update mode**, expand **Send a second firmware image**, select a complete `.VSB`, and choose **Send update firmware**. This works in the standalone and embedded workbenches without connecting the outer updater or requesting Web MIDI. The second file is validated separately and sent through the emulated MIDI connection; selecting or sending it does not replace/reset the booted image. USB transfers wait up to two minutes for enumeration, then allow 30 seconds for each updater reply. The original integration probe uses its DIN transport instead. Same-version or older updates require the explicit reinstall/downgrade option.
+
+Progress ends when all packets are acknowledged, not when installation is proven complete. Inspect the emulator display before restarting. **Stop transfer** cancels remaining packets and leaves any partial staging writes in place; failed transfers are not retried. Manual controls, scripts, debugger changes, and the outer updater/backup controls are locked during transfer. Critical flash-safety monitoring remains active: staging is writable, but attempting to change protected installed firmware can terminate the session. The update file stays only in memory and must be selected again after reloading the page.
+
 ## UI scripts
 
-Expand **UI scripts** below the instrument panel. Choose one of seven **Example scripts** and click **Load example**, or start a **New script**. Examples cover transport buttons, a SHIFT/pad combination, encoder turns, version-mode startup, explicit shutdown, and two regression exercises for confirmed vendor text-handling bugs. They load editable templates without executing them. See [the bug example guide](../docs/bug-script-examples.md) for required setup, the reference fixes, and what these scripts can demonstrate. Adjust startup waits for your firmware and computer.
+Expand **UI scripts** below the instrument panel. Choose one of eight **Example scripts** and click **Load example**, or start a **New script**. Examples cover transport buttons, a SHIFT/pad combination, encoder turns, version-mode startup, submitting a second firmware image, explicit shutdown, and two regression exercises for confirmed vendor text-handling bugs. They load editable templates without executing them. See [the bug example guide](../docs/bug-script-examples.md) for required setup, the reference fixes, and what these scripts can demonstrate. Adjust startup waits for your firmware and computer.
 
 Use **Append action** to build a sequence, or edit/reorder/remove entries in the actions JSON editor. **Run script** executes the editor contents against the loaded firmware and shows progress. Buttons, encoder positions, firmware display, and LEDs update during execution through the normal emulator input path. Manual controls, debugger changes, image replacement, and updater/backup operations are locked during playback. Disable debugging before running a script.
 
 **The instance keeps running when a script finishes unless the script explicitly powers it off.** A script resumes paused execution; include Power on to reset or restart a powered-off instance. Power on supports normal, version (GLOBAL held), and update (GLOBAL + PATTERN held) modes. Release startup buttons with `button` actions whose `down` is `false`. Power off holds the emulated power button and waits for firmware shutdown; firmware that does not respond produces an error after two minutes. It does not forcibly discard the instance.
 
 **Stop script** cancels remaining actions and leaves the emulator in its current state. An interrupted timed press is released; explicit held buttons remain held until released. A power-off already sent to firmware continues its shutdown. Faults stop playback and are reported without executing the remaining actions.
+
+The `firmware-update` action sends the VSB currently selected under **Send a second firmware image**. Select it before playback; a missing file fails before any script actions run. Start in update mode first. The action waits for transfer acknowledgement and the package's post-update delay, then continues with the next action; it does not confirm installation or restart automatically. Add waits appropriate to your firmware before subsequent actions. **Stop script** also cancels an active transfer. Its optional `allowOlder` flag defaults to `false` and is independent of the manual reinstall checkbox. Firmware bytes and filenames are not embedded in saved/exported scripts. For example, this actions array starts update mode and submits the selected file once USB is ready:
+
+```json
+[
+  { "type": "power-on", "mode": "update" },
+  { "type": "firmware-update", "allowOlder": false }
+]
+```
 
 **Save in browser** stores the named script in IndexedDB. Select it from **Saved scripts** to edit or overwrite it; **New script** starts a separate entry. **Delete saved script** removes the browser copy while retaining its contents in the editor. Storage survives reloads and is shared by standalone and embedded workbenches on the same origin. Firmware and emulated flash are not stored with scripts. Clearing browser site data removes the library. **Export script** downloads a JSON copy, and **Import script** validates a file and opens it as an unsaved draft. Neither import nor selecting a saved script runs it. Import/export remain available when browser storage is unavailable.
 
@@ -60,6 +73,7 @@ The portable format is versioned JSON data, not JavaScript. For example:
 | --- | --- | --- |
 | `power-on` | `mode`: `normal`, `version`, or `update` | Reset and start with the selected startup buttons held. |
 | `power-off` | None | Request shutdown and wait for firmware to release power. |
+| `firmware-update` | Optional `allowOlder`: boolean (default `false`) | Send the separately selected VSB to the running updater; wait for packet acknowledgements. |
 | `wait` | `ms` | Wait in browser time while firmware continues running. |
 | `press` | `control`, `ms` | Press a button/pad, wait, and release. |
 | `button` | `control`, `down`: boolean | Hold or release a button/pad; useful for combinations. |

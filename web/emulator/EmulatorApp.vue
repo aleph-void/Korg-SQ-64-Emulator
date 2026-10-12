@@ -8,6 +8,8 @@ import ValidationPanel from './ValidationPanel.vue';
 import InstrumentPanel from './InstrumentPanel.vue';
 import ScriptPanel from './ScriptPanel.vue';
 import { runScript } from './scripts.js';
+import { submitFirmware } from './firmware-update.js';
+import { IMAGE_SIZE, parseVsb, sha256 } from '../src/protocol.js';
 
 const sharedDevice = window.parent !== window && window.parent.sq64Emulator;
 const device = sharedDevice || new BrowserEmulator();
@@ -20,10 +22,14 @@ const route = ref('usb'),
   loading = ref(false);
 const imageName = ref(''),
   loadError = ref('');
-const controlsDisabled = computed(() => !state.value.loaded || !!state.value.terminated || !!state.value.locked || !!state.value.scripting || loading.value);
+const updateImage = shallowRef(null), updateFileInfo = ref('No update firmware selected');
+const updateLoading = ref(false), updateOlder = ref(false), updateMessage = ref(''), updateProgress = ref(0);
+let updateController;
+const controlsDisabled = computed(() => !state.value.loaded || !!state.value.terminated || !!state.value.locked || !!state.value.scripting || !!state.value.updating || loading.value || updateLoading.value);
 const interactionDisabled = computed(() => controlsDisabled.value || !!state.value.report?.board.poweredOff);
-const fileDisabled = computed(() => !!state.value.terminated || !!state.value.locked || !!state.value.scripting || loading.value);
-const controlState = computed(() => ({ ...state.value, locked: state.value.locked || state.value.scripting || loading.value }));
+const fileDisabled = computed(() => !!state.value.terminated || !!state.value.locked || !!state.value.scripting || !!state.value.updating || loading.value || updateLoading.value);
+const controlState = computed(() => ({ ...state.value, locked: state.value.locked || state.value.scripting || state.value.updating || loading.value || updateLoading.value }));
+const updateDisabled = computed(() => interactionDisabled.value || !updateImage.value || state.value.mode !== 'update' || !!state.value.report?.debug?.enabled || !!state.value.report?.error);
 const instrumentState = computed(() => ({ ...panelState.value, locked: controlState.value.locked }));
 const report = computed(() => state.value.report);
 const status = computed(() => {
@@ -71,13 +77,13 @@ function update(snapshot) {
   queueRender(state.value);
 }
 async function api(action, data = {}, scripted = false) {
-  if (device.locked && !['state', 'recording'].includes(action))
+  if ((device.locked || device.updating) && !['state', 'recording'].includes(action))
     throw Error('Wait for the current updater or backup operation to finish');
   if (device.scripting && !scripted && !['state', 'recording'].includes(action))
     throw Error('Stop the script before using manual controls');
   const result = await device.request(action, data);
   if (result && typeof result.loaded === 'boolean') {
-    const snapshot = { ...result, locked: device.locked, scripting: device.scripting };
+    const snapshot = { ...result, locked: device.locked, scripting: device.scripting, updating: device.updating };
     update(snapshot);
     if (['load', 'reset'].includes(action)) resetKey.value++;
     return snapshot;
@@ -89,9 +95,59 @@ async function playScript(script, onProgress, signal) {
   error.value = '';
   device.setScripting(true);
   resetKey.value++;
-  try { return await runScript(script, { request: (action, data) => api(action, data, true), onProgress, signal }); }
+  try { return await runScript(script, { request: (action, data) => api(action, data, true), onProgress, signal,
+    firmwareUpdate: updateImage.value ? (action, options) => sendUpdate(action, { ...options, scripted: true }) : undefined }); }
   finally { device.setScripting(false); }
 }
+async function selectUpdateFile(event) {
+  if (fileDisabled.value) return;
+  const file = event.target.files[0];
+  updateImage.value = null;
+  updateFileInfo.value = 'No update firmware selected';
+  updateMessage.value = '';
+  updateProgress.value = 0;
+  if (!file) return;
+  updateLoading.value = true;
+  try {
+    if (file.size !== 256 + IMAGE_SIZE) throw Error('Expected a 229,632-byte VSB system file');
+    const pkg = parseVsb(await file.arrayBuffer());
+    const hash = await sha256(pkg.data);
+    updateImage.value = pkg.data;
+    updateFileInfo.value = `${file.name} · version ${pkg.version[0]}.${String(pkg.version[1]).padStart(2, '0')} · SHA-256 ${hash}`;
+  } catch (failure) {
+    updateFileInfo.value = failure.message;
+  } finally {
+    updateLoading.value = false;
+    event.target.value = '';
+  }
+}
+async function sendUpdate(action, { signal, scripted = false, onProgress = () => {} } = {}) {
+  if (!updateImage.value) throw Error('Select an update VSB file first');
+  updateProgress.value = 0;
+  try {
+    const result = await submitFirmware(device, updateImage.value, { ...action, signal, scripted,
+      onProgress(progress) {
+        updateMessage.value = progress.phase === 'waiting-for-updater' ? 'Waiting for the emulator updater connection…'
+          : progress.phase === 'begin' ? 'Starting firmware transfer…'
+          : progress.phase === 'writing' ? 'Firmware is writing…' : 'Sending update firmware…';
+        if (progress.total) updateProgress.value = 100 * progress.done / progress.total;
+        onProgress(progress);
+      } });
+    updateMessage.value = `${result.packets} packets acknowledged. Check the emulator display for completion before restarting.`;
+    return result;
+  } catch (failure) {
+    updateMessage.value = signal?.aborted ? 'Transfer stopped. The emulator may contain a partial update.' : `Update failed: ${failure.message}`;
+    throw failure;
+  }
+}
+async function startUpdate() {
+  if (updateDisabled.value) return;
+  updateController = new AbortController();
+  try { await sendUpdate({ allowOlder: updateOlder.value }, { signal: updateController.signal }); }
+  catch { /* sendUpdate reports the failure beside the update controls. */ }
+  finally { updateController = undefined; }
+}
+function stopUpdate() { updateController?.abort(new DOMException('Firmware transfer stopped', 'AbortError')); }
 async function act(task) {
   error.value = '';
   try {
@@ -179,6 +235,7 @@ onMounted(() => {
 });
 onBeforeUnmount(() => {
   mounted = false;
+  stopUpdate();
   observer?.disconnect();
   device.removeEventListener('state', stateChanged);
   device.removeEventListener('fault', fault);
@@ -268,6 +325,21 @@ onBeforeUnmount(() => {
         ><button id="release" :disabled="interactionDisabled" @click="releaseStartup">Release startup buttons</button>
       </div>
     </div>
+    <details id="firmware-update" class="scripts">
+      <summary>Send a second firmware image</summary>
+      <p>Start the loaded firmware in Update mode, then select a second .VSB and send it to the running updater.</p>
+      <label>Update firmware (.VSB)<input id="update-image" type="file" accept=".vsb,.VSB" :disabled="fileDisabled" @change="selectUpdateFile" /></label>
+      <p id="update-file-info" style="overflow-wrap: anywhere">{{ updateLoading ? 'Reading update firmware…' : updateFileInfo }}</p>
+      <label><input id="update-older" type="checkbox" v-model="updateOlder" :disabled="fileDisabled" />Allow reinstalling the same version or downgrading</label>
+      <div class="toolbar"><div>
+        <button id="send-update" :disabled="updateDisabled" @click="startUpdate">Send update firmware</button>
+        <button id="stop-update" :disabled="!state.updating || state.scripting" @click="stopUpdate">Stop transfer</button>
+      </div></div>
+      <progress aria-label="Firmware transfer progress" max="100" :value="updateProgress"></progress>
+      <p id="update-status" role="status">{{ updateMessage || 'Ready after selecting an update file and starting Update mode' }}</p>
+      <p class="hint">Files stay in memory. Scripts use this selection for the firmware-update action.
+        Packet acknowledgement does not verify installation. Existing flash-safety checks can stop firmware when it attempts to change protected storage.</p>
+    </details>
     <ValidationPanel :state="controlState" :request="api" />
     <InstrumentPanel
       :state="instrumentState"
@@ -275,7 +347,7 @@ onBeforeUnmount(() => {
       @input="act(() => api('event', $event))"
       @error="error = $event"
     />
-    <ScriptPanel :state="state" :loading="loading" :play="playScript" />
+    <ScriptPanel :state="state" :loading="loading || updateLoading" :play="playScript" />
     <div class="details">
       <section>
         <p class="eyebrow">EXECUTION</p>

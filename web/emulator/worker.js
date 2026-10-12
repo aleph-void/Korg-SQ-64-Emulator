@@ -10,7 +10,7 @@ let engine, machine, inputs, running = false, mode = 'normal', options = {transp
 let loadedBytes, conformance = null, terminated = false;
 let execution = new ExecutionSlice();
 const onMidi = data => postMessage({type: 'midi', data});
-const state = () => machine ? {loaded: true, running, mode, inputPending: inputs?.pending || false, midi: 'In-browser MIDI · ' + options.transport.toUpperCase(), report: {...machine.report(), conformance}, panel: {...machine.board.panel.snapshot(), outputs: machine.board.outputLevels()}} : {loaded: false, running: false};
+const state = () => machine ? {loaded: true, running, mode, transport: options.transport, inputPending: inputs?.pending || false, midi: 'In-browser MIDI · ' + options.transport.toUpperCase(), report: {...machine.report(), conformance}, panel: {...machine.board.panel.snapshot(), outputs: machine.board.outputLevels()}} : {loaded: false, running: false};
 function notify() {
   if (statePending) return;
   postMessage({type: 'state', state: state()}); lastState = performance.now(); statePending = true;

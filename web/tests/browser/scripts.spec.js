@@ -110,7 +110,7 @@ test('scripts survive reload in IndexedDB, can be updated, exported, shared with
 
 test('example selection loads editable templates without executing or saving them', async ({ page }) => {
   const panel = await open(page);
-  await expect(panel.locator('#script-examples option')).toHaveCount(8);
+  await expect(panel.locator('#script-examples option')).toHaveCount(9);
   for (const [id, name] of [['firmware-global-label', 'Regression exercise: GLOBAL channel label'],
     ['firmware-short-label-queue', 'Regression exercise: short display labels']]) {
     await panel.locator('#script-examples').selectOption(id);
@@ -160,3 +160,26 @@ test('invalid editor data never starts the instance or takes the script lock', a
   await expect(panel.locator('#status')).toContainText('Firmware loaded');
   await expect(page.locator('#emulated')).toBeEnabled();
 });
+
+for (const id of ['firmware-global-label', 'firmware-short-label-queue']) {
+  test(`${id} runs after the virtual device has powered off`, async ({ page }) => {
+    const panel = await open(page);
+    await panel.locator('#image').setInputFiles(firmware());
+    await panel.locator('#script-import').setInputFiles(file(document([
+      { type: 'power-on', mode: 'normal' }, { type: 'wait', ms: 100 }, { type: 'power-off' },
+    ])));
+    await panel.locator('#script-run').click();
+    await expect(panel.locator('#script-status')).toHaveText('Script complete · powered off');
+    await expect(panel.locator('#status')).toContainText('Powered off');
+    await panel.locator('#script-examples').selectOption(id);
+    await panel.locator('#script-load-example').click();
+    const actions = JSON.parse(await panel.locator('#script-actions').inputValue());
+    expect(actions.slice(0, 2)).toEqual([{ type: 'power-on', mode: 'normal' }, { type: 'wait', ms: 60000 }]);
+    // The synthetic power probe boots immediately; retain the real action order.
+    actions[1].ms = 100;
+    await panel.locator('#script-actions').fill(JSON.stringify(actions));
+    await panel.locator('#script-run').click();
+    await expect(panel.locator('#script-status')).toHaveText('Script complete · emulator keeps running', { timeout: 25000 });
+    await expect(panel.locator('#status')).toContainText('Running');
+  });
+}

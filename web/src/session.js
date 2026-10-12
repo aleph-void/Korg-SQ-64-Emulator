@@ -1,6 +1,11 @@
 import {Framer, VUP, frame, discovery, versionReply, ack, transferPlan} from './protocol.js';
 
-export const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+export const sleep = (ms, signal) => new Promise((resolve, reject) => {
+  const abort = () => { clearTimeout(timer); reject(signal.reason); };
+  const timer = setTimeout(() => { signal?.removeEventListener('abort', abort); resolve(); }, ms);
+  if (signal?.aborted) abort();
+  else signal?.addEventListener('abort', abort, {once: true});
+});
 export class MidiSession {
   constructor(input, output, {timeout = 5000} = {}) {
     this.input = input; this.output = output; this.timeout = timeout; this.pending = null; this.closed = false;
@@ -50,30 +55,41 @@ export async function inspectUpdater(session) {
   const version = versionReply(await session.exchange(frame(2, [0])));
   return {caps, version};
 }
-export async function updateFirmware(session, pkg, {allowOlder = false, onProgress = () => {}, delay = sleep} = {}) {
-  const {caps, version} = await inspectUpdater(session);
-  const plan = transferPlan(pkg, caps, version, allowOlder);
-  const exchange = async message => {
-    const reply = await session.exchange(message, {progress: data => {
-      const status = ack(data);
-      if (status.progress) onProgress({phase: 'writing', ...status});
-      return status.progress;
-    }});
-    ack(reply);
-  };
-  onProgress({phase: 'begin', version});
+export async function updateFirmware(session, pkg, {allowOlder = false, onProgress = () => {}, delay = sleep, signal} = {}) {
+  signal?.throwIfAborted();
+  const abort = () => session.close(signal.reason);
+  signal?.addEventListener('abort', abort, {once: true});
+  let began = false;
   try {
+    const {caps, version} = await inspectUpdater(session);
+    signal?.throwIfAborted();
+    const plan = transferPlan(pkg, caps, version, allowOlder);
+    const exchange = async message => {
+      signal?.throwIfAborted();
+      const reply = await session.exchange(message, {progress: data => {
+        const status = ack(data);
+        if (status.progress) onProgress({phase: 'writing', ...status});
+        return status.progress;
+      }});
+      ack(reply);
+    };
+    onProgress({phase: 'begin', version});
+    began = true;
     await exchange(plan.begin);
     for (let i = 0; i < plan.count; i++) {
-      await delay(2);
+      await delay(2, signal);
       await exchange(plan.packet(i));
       onProgress({phase: 'transmitting', done: i + 1, total: plan.count});
     }
+    if (pkg.delay) await delay(pkg.delay, signal);
+    signal?.throwIfAborted();
+    onProgress({phase: 'await-device-completion', done: plan.count, total: plan.count});
+    return {packets: plan.count, deviceCompletionVerified: false};
   } catch (error) {
-    session.close(error);
+    if (began) session.close(error);
+    signal?.throwIfAborted();
     throw error;
+  } finally {
+    signal?.removeEventListener('abort', abort);
   }
-  if (pkg.delay) await delay(pkg.delay);
-  onProgress({phase: 'await-device-completion', done: plan.count, total: plan.count});
-  return {packets: plan.count, deviceCompletionVerified: false};
 }

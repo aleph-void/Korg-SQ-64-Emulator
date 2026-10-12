@@ -46,6 +46,7 @@ test('script imports reject unsupported versions, malformed actions, unknown con
       { type: 'button', control: 'A17', down: true }, { type: 'button', control: 'play', down: 'true' },
       { type: 'encoder', control: 'tempo', delta: 129 }, { type: 'encoder', control: 'nope', delta: 1 },
       { type: 'power-on', mode: 'unknown' }, { type: 'press', control: 'play' },
+      { type: 'firmware-update', allowOlder: 'true' }, { type: 'firmware-update', file: 'candidate.vsb' },
       { type: 'midi', data: [] }, { type: 'midi', data: [256] }, { type: 'midi', data: Array(1025).fill(0) },
     ].map(action => script([action])),
   ]) assert.throws(() => validateScript(invalid));
@@ -116,4 +117,41 @@ test('faults, transaction locks, disabled firmware and debugging prevent playbac
   options.delay = async () => { state.report.error = 'Firmware fault during wait'; };
   await assert.rejects(runScript(script([{ type: 'wait', ms: 100 }, { type: 'power-off' }]), options), /during wait/);
   assert.equal(calls.some(row => row.action === 'poweroff'), false);
+});
+
+test('update scripts require a selected image before any actions, including power-on', async () => {
+  const { options, calls } = fixture();
+  await assert.rejects(runScript(script([{ type: 'power-on', mode: 'update' }, { type: 'firmware-update' }]), options), /Select an update VSB/);
+  assert.deepEqual(calls, []);
+});
+
+test('update action awaits transfer, forwards cancellation/progress and uses an explicit downgrade setting', async () => {
+  for (const allowOlder of [undefined, false, true]) {
+    const { options, calls, progress } = fixture();
+    const controller = new AbortController();
+    const action = { type: 'firmware-update', ...(allowOlder === undefined ? {} : { allowOlder }) };
+    const result = await runScript(script([action, { type: 'power-off' }]), { ...options, signal: controller.signal,
+      async firmwareUpdate(action, context) {
+        assert.deepEqual(action, { allowOlder: allowOlder ?? false });
+        assert.equal(context.signal, controller.signal);
+        assert.equal(calls.some(call => call.action === 'poweroff'), false);
+        context.onProgress({ phase: 'transmitting', done: 10, total: 224 });
+      } });
+    assert.equal(result.report.board.poweredOff, true);
+    assert.ok(progress.some(row => row.label.includes('10/224')));
+  }
+});
+
+test('failed or cancelled update skips all remaining script actions', async () => {
+  for (const cancel of [false, true]) {
+    const { options, calls } = fixture();
+    const controller = new AbortController();
+    await assert.rejects(runScript(script([{ type: 'firmware-update' }, { type: 'power-off' }]), {
+      ...options, signal: controller.signal, async firmwareUpdate() {
+        if (cancel) { controller.abort(); controller.signal.throwIfAborted(); }
+        throw Error('Transfer failed');
+      },
+    }));
+    assert.equal(calls.some(call => call.action === 'poweroff'), false);
+  }
 });

@@ -4,6 +4,14 @@
   "name": "Regression exercise: short display labels",
   "actions": [
     {
+      "type": "power-on",
+      "mode": "normal"
+    },
+    {
+      "type": "wait",
+      "ms": 60000
+    },
+    {
       "type": "press",
       "control": "stop",
       "ms": 150

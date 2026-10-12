@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {MidiSession, updateFirmware} from '../src/session.js';
+import {MidiSession, sleep, updateFirmware} from '../src/session.js';
 import {DemoSession} from '../src/demo.js';
 import {frame, parseVsb, parseFrame} from '../src/protocol.js';
 import {syntheticVsb} from './fixtures.js';
@@ -40,4 +40,19 @@ test('NAK stops immediately without retry or later packets', async () => {
   session.exchange = async data => data[6] === 6 ? frame(5, [9]) : exchange(data);
   await assert.rejects(updateFirmware(session, parseVsb(syntheticVsb()), {delay: async () => {}}), /Flash write/);
   assert.equal(session.next, 0);
+});
+
+test('cancellation during the post-update delay exits immediately without reporting completion', async () => {
+  const session = new DemoSession(), controller = new AbortController(), progress = [];
+  const pkg = { ...parseVsb(syntheticVsb()), delay: 60000 };
+  await assert.rejects(updateFirmware(session, pkg, { signal: controller.signal, onProgress: row => progress.push(row),
+    delay: async (ms, signal) => {
+      if (ms === pkg.delay) {
+        queueMicrotask(() => controller.abort());
+        await sleep(ms, signal);
+      }
+    } }), { name: 'AbortError' });
+  assert.equal(session.next, 224);
+  assert.equal(session.closed, true);
+  assert.equal(progress.some(row => row.phase === 'await-device-completion'), false);
 });

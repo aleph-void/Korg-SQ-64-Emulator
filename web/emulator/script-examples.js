@@ -36,6 +36,15 @@ export const SCRIPT_EXAMPLES = [
     ] },
   },
   {
+    id: 'firmware-update', description: 'Select a second VSB in Send a second firmware image first. Boot in update mode, wait 60 seconds, release the startup buttons, and send it. Check the display before restarting.',
+    script: { name: 'Submit a second firmware image', actions: [
+      { type: 'power-on', mode: 'update' }, { type: 'wait', ms: 60000 },
+      { type: 'button', control: 'global', down: false },
+      { type: 'button', control: 'pattern', down: false },
+      { type: 'firmware-update', allowOlder: false },
+    ] },
+  },
+  {
     id: 'shutdown', description: 'Start normally, wait 60 seconds, then explicitly power off and wait for firmware shutdown.',
     script: { name: 'Start and power off', actions: [
       { type: 'power-on', mode: 'normal' }, { type: 'wait', ms: 60000 }, { type: 'power-off' },

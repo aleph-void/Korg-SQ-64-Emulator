@@ -6,7 +6,7 @@ export const SCRIPT_CONTROLS = [...BUTTONS, ...PADS];
 const fields = {
   'power-on': ['mode'], 'power-off': [], wait: ['ms'],
   button: ['control', 'down'], press: ['control', 'ms'],
-  encoder: ['control', 'delta'], midi: ['data'],
+  encoder: ['control', 'delta'], midi: ['data'], 'firmware-update': [],
 };
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const integer = (value, min, max) => Number.isInteger(value) && value >= min && value <= max;
@@ -26,8 +26,11 @@ export function validateScript(value) {
     const invalid = reason => { throw Error(`Action ${index + 1}: ${reason}`); };
     if (!object(action) || !Object.hasOwn(fields, action.type)) invalid('unknown action type');
     const required = fields[action.type];
-    if (Object.keys(action).some(key => key !== 'type' && !required.includes(key)) ||
+    const allowed = action.type === 'firmware-update' ? ['allowOlder'] : required;
+    if (Object.keys(action).some(key => key !== 'type' && !allowed.includes(key)) ||
         required.some(key => !Object.hasOwn(action, key))) invalid('unexpected or missing fields');
+    if (action.type === 'firmware-update' && Object.hasOwn(action, 'allowOlder') && typeof action.allowOlder !== 'boolean')
+      invalid('allowOlder must be true or false');
     if (action.type === 'power-on' && !['normal', 'version', 'update'].includes(action.mode)) invalid('unknown startup mode');
     if (['button', 'press'].includes(action.type) && !SCRIPT_CONTROLS.includes(action.control)) invalid('unknown button or pad');
     if (action.type === 'button' && typeof action.down !== 'boolean') invalid('down must be true or false');
@@ -59,6 +62,7 @@ export function actionLabel(action) {
     case 'press': return `Press ${action.control} for ${action.ms} ms`;
     case 'encoder': return `Turn ${action.control} ${action.delta > 0 ? '+' : ''}${action.delta} steps`;
     case 'midi': return `Send ${action.data.length} MIDI bytes`;
+    case 'firmware-update': return 'Send selected update firmware';
   }
 }
 
@@ -74,14 +78,16 @@ function sleep(ms, signal) {
 // Use the interactive input path, including its virtual scan/debounce spacing.
 // Await queued edges before advancing, while the worker continues rendering.
 export async function runScript(value, { request, signal, onProgress = () => {},
-  delay = sleep, now = () => performance.now(), timeout = 120000 }) {
+  firmwareUpdate, delay = sleep, now = () => performance.now(), timeout = 120000 }) {
   const script = validateScript(value);
+  if (script.actions.some(action => action.type === 'firmware-update') && typeof firmwareUpdate !== 'function')
+    throw Error('Select an update VSB file before running this script');
   let snapshot;
   const check = () => {
     signal?.throwIfAborted();
     if (snapshot?.terminated) throw Error(snapshot.terminated.message);
     if (!snapshot?.loaded) throw Error('Load firmware before running a script');
-    if (snapshot.locked) throw Error('Wait for the current updater or backup operation to finish');
+    if (snapshot.locked || snapshot.updating) throw Error('Wait for the current updater or backup operation to finish');
     if (snapshot.report?.error) throw Error(snapshot.report.error);
     if (snapshot.report?.debug?.enabled) throw Error('Disable debugging before running a script');
   };
@@ -136,6 +142,13 @@ export async function runScript(value, { request, signal, onProgress = () => {},
         }
         break;
       case 'encoder': case 'midi': await input(action); break;
+      case 'firmware-update':
+        await firmwareUpdate({ allowOlder: action.allowOlder ?? false }, { signal, onProgress: progress => {
+          onProgress({ index, total: script.actions.length, action,
+            label: progress.total ? `Update firmware · ${progress.done}/${progress.total}` : 'Waiting for updater' });
+        } });
+        await refresh();
+        break;
     }
   }
   onProgress({ index: script.actions.length, total: script.actions.length, action: null, label: 'Complete' });

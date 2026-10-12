@@ -28,7 +28,7 @@ export class BrowserEmulator extends EventTarget {
       else if (m.type === 'state') {
         // Bound periodic snapshots to one in flight if the UI thread stalls.
         this.worker.postMessage({type: 'state-ack'});
-        this.state = {...m.state, locked: this.locked, scripting: this.scripting}; this.loaded = m.state.loaded;
+        this.state = {...m.state, locked: this.locked, scripting: this.scripting, updating: this.updating}; this.loaded = m.state.loaded;
         this.input.setState(this.loaded && !m.state.report?.error && !m.state.report?.board.poweredOff ? 'connected' : 'disconnected'); this.output.setState(this.input.state);
         this.dispatchEvent(new CustomEvent('state', {detail: this.state}));
       } else if (this.pending.has(m.id)) {
@@ -42,7 +42,7 @@ export class BrowserEmulator extends EventTarget {
     this.terminated = structuredClone(stop);
     this.worker?.terminate(); this.worker = null;
     this.loaded = false;
-    this.state = structuredClone({...snapshot, running: false, terminated: stop, locked: this.locked, scripting: this.scripting,
+    this.state = structuredClone({...snapshot, running: false, terminated: stop, locked: this.locked, scripting: this.scripting, updating: this.updating,
       report: {...snapshot.report, status: 'terminated'}});
     this.input.setState('disconnected'); this.output.setState('disconnected');
     for (const p of this.pending.values()) {
@@ -68,7 +68,14 @@ export class BrowserEmulator extends EventTarget {
       this.pending.set(id, {resolve, reject, timer, action}); this.worker.postMessage({id, action, data});
     });
   }
-  setLocked(value) { this.locked = value; if (this.state) { this.state = {...this.state, locked: value, scripting: this.scripting}; this.dispatchEvent(new CustomEvent('state', {detail: this.state})); } }
-  setScripting(value) { this.scripting = value; if (this.state) { this.state = {...this.state, locked: this.locked, scripting: value}; this.dispatchEvent(new CustomEvent('state', {detail: this.state})); } }
+  setLocked(value) { this.locked = value; this.activityChanged(); }
+  setScripting(value) { this.scripting = value; this.activityChanged(); }
+  setUpdating(value) { this.updating = value; this.activityChanged(); }
+  activityChanged() {
+    if (this.state) {
+      this.state = {...this.state, locked: this.locked, scripting: this.scripting, updating: this.updating};
+      this.dispatchEvent(new CustomEvent('state', {detail: this.state}));
+    }
+  }
   close() { this.worker?.terminate(); this.worker = null; this.loaded = false; this.fault('Emulator closed'); }
 }
