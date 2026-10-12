@@ -106,9 +106,13 @@ npm run build -- --out /tmp/sq64-pages-export
 
 The output directory must be empty or absent. Review that export, copy its contents into the root of your deployment branch, commit and push when ready, then select that branch and `/ (root)` in Pages settings. The command itself does not alter Git branches, commit, push or deploy. Alternatively, `npm run build` refreshes the disposable `web/dist/` output.
 
-The export contains the updater, browser emulator, image conformance validator and metadata, fonts, branding, original diagnostic probe, licenses, complete Unicorn corresponding source, `.nojekyll`, and `CNAME` for `sq64.alephvoid.com`. It excludes tests, development dependencies, native Python code and the full conformance project. Never copy private firmware into this tree.
+The export contains the updater, browser emulator, image conformance validator and metadata, fonts, branding, original diagnostic probe, licenses, complete Unicorn corresponding source, web app manifests with icons, a generated `sw.js` service worker, `.nojekyll`, and `CNAME` for `sq64.alephvoid.com`. It excludes tests, development dependencies, native Python code and the full conformance project. Never copy private firmware into this tree.
 
-URLs are relative, so the app also runs below a repository URL path. Remove/change `CNAME` and canonical metadata if intentionally deploying elsewhere. Configure custom-domain DNS and HTTPS separately. `_headers` is for hosts that support it; GitHub Pages does not use this file, so the app also includes its content security policy in HTML. Same-origin embedding and WebAssembly are permitted, without cross-origin isolation, SharedArrayBuffer, an API server or a service worker.
+URLs are relative, so the app also runs below a repository URL path. Remove/change `CNAME` and canonical metadata if intentionally deploying elsewhere. Configure custom-domain DNS and HTTPS separately. `_headers` is for hosts that support it; GitHub Pages does not use this file, so the app also includes its content security policy in HTML. Same-origin embedding and WebAssembly are permitted, without cross-origin isolation, SharedArrayBuffer or an API server.
+
+## Offline use and installation
+
+Both pages are installable web apps: the root page installs as **SQ-64 Tools** and `emulator/` as **SQ-64**, each with its own manifest. `tools/build.js` generates `sw.js` from `tools/sw.template.js`, precaching every exported file except the Unicorn corresponding-source tarball, so a previously visited site works fully offline — including loading firmware and running the emulator. Page navigations stay network-first, and the cache name includes the version plus a content hash, so a redeploy replaces the cache on the next online visit. The service worker only exists in the production export; `npm run dev` runs without one, and tests that patch served files with Playwright routes opt out with `serviceWorkers: 'block'`.
 
 ## Browser coverage
 

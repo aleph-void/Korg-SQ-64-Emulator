@@ -3,3 +3,5 @@
   X-Content-Type-Options: nosniff
   Referrer-Policy: no-referrer
   Permissions-Policy: midi=(self)
+/sw.js
+  Cache-Control: no-cache

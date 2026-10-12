@@ -1,6 +1,10 @@
 import {test, expect} from './fixtures.js';
 import {syntheticVsb} from '../fixtures.js';
 
+// markCriticalTest patches the worker catalog with page.route, which never
+// sees requests the site's service worker answers from its precache.
+test.use({serviceWorkers: 'block'});
+
 function firmware(corrupt = false) {
   const bytes = syntheticVsb(), view = new DataView(bytes.buffer);
   view.setUint32(260, 0x200009, true); bytes.set([1, 0x30, 0xfd, 0xe7], 264);

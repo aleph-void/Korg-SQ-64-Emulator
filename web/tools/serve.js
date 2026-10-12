@@ -3,7 +3,7 @@ import {readFile} from 'node:fs/promises';
 import {resolve, extname, sep} from 'node:path';
 const root = resolve(process.env.SITE_ROOT || 'dist'), port = Number(process.env.PORT || 4173);
 const version = await readFile(resolve(root, '../VERSION'), 'utf8').then(v => v.trim(), () => 'dev');
-const types = {'.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.woff2': 'font/woff2'};
+const types = {'.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.json': 'application/json', '.png': 'image/png', '.woff2': 'font/woff2', '.webmanifest': 'application/manifest+json'};
 http.createServer(async (req, res) => {
   try {
     // Serve the same export under /dist/ as well to exercise repository-path hosting.
