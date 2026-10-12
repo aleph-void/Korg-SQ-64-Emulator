@@ -12,9 +12,9 @@ from .core import Machine
 from .image import Image, FLASH
 
 class Workbench:
-    def __init__(self, content=None, mapping=None):
-        self.mapping = mapping; self.content = content
-        self.machine = Machine(content, panel_mapping=mapping) if content else None
+    def __init__(self, content=None, mapping=None, debug=None):
+        self.mapping = mapping; self.content = content; self.debug_options = debug
+        self.machine = Machine(content, panel_mapping=mapping, debug=debug) if content else None
         self.running = False; self.mode = 'normal'; self.lock = threading.RLock()
         self.stop = threading.Event(); self.midi = None; self.midi_error = None
         self.worker = threading.Thread(target=self.loop, daemon=True); self.worker.start()
@@ -27,7 +27,7 @@ class Workbench:
                     except Exception as error: self.midi_error = str(error); self.running = False
                 if self.running and self.machine:
                     self.machine.run(2000)
-                    if self.machine.error: self.running = False
+                    if self.machine.error or self.machine.breakpoint is not None or self.machine.debug.stopped_at is not None: self.running = False
 
     def reset(self, mode):
         if mode not in ('normal', 'version', 'update'): raise ValueError('Unknown boot mode')
@@ -36,7 +36,7 @@ class Workbench:
         # A reset retains the emulated flash, including writes by candidate code.
         internal = bytes(previous.uc.mem_read(FLASH, 0x10000)); spi = bytes(previous.board.flash.data)
         image = Image([(FLASH, internal)] + [(a, d) for a, d in previous.image.segments if a != FLASH], spi, FLASH, hashlib.sha256(internal + spi).hexdigest(), 'reset-state')
-        self.machine = Machine(image, panel_mapping=self.mapping)
+        self.machine = Machine(image, panel_mapping=self.mapping, debug=previous.debug.config())
         self.mode = mode
         if mode != 'normal':
             self.machine.event({'type': 'button', 'control': 'global', 'down': True})
@@ -88,7 +88,7 @@ def make_server(workbench, port=0):
                 raw = self.rfile.read(length)
                 with workbench.lock:
                     if self.path == '/api/load':
-                        machine = Machine(raw, panel_mapping=workbench.mapping)
+                        machine = Machine(raw, panel_mapping=workbench.mapping, debug=workbench.debug_options)
                         workbench.running = False; workbench.machine = machine; workbench.content = raw; workbench.mode = 'normal'
                     else:
                         data = json.loads(raw)
@@ -96,6 +96,12 @@ def make_server(workbench, port=0):
                         if self.path == '/api/run': workbench.running = True
                         elif self.path == '/api/pause': workbench.running = False
                         elif self.path == '/api/step': workbench.running = False; workbench.machine.run(min(100000, max(1, int(data.get('instructions', 1)))))
+                        elif self.path == '/api/debug':
+                            workbench.machine.debug.configure(**data); workbench.running = False
+                        elif self.path == '/api/debug-memory':
+                            if workbench.running: raise ValueError('Pause before inspecting memory')
+                            self.reply(200, workbench.machine.debug.memory(data['address'], data.get('length', 128))); return
+                        elif self.path == '/api/state': pass
                         elif self.path == '/api/reset': workbench.reset(data.get('mode', 'normal'))
                         elif self.path == '/api/event': workbench.machine.event(data)
                         elif self.path == '/api/replay': workbench.machine.replay(data)
@@ -109,7 +115,7 @@ def make_server(workbench, port=0):
     return ThreadingHTTPServer(('127.0.0.1', port), Handler)
 
 def serve(args, mapping):
-    workbench = Workbench(args.image.read_bytes() if args.image else None, mapping)
+    workbench = Workbench(args.image.read_bytes() if args.image else None, mapping, args.debug_options)
     if args.midi:
         from .midi import open_bridge
         try: workbench.midi = open_bridge(input_port=args.midi_input, output_port=args.midi_output,

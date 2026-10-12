@@ -3,13 +3,15 @@ import {BrowserEmulator} from './client.js';
 import {displayPixels} from './display.js';
 import {OUTPUT_GROUPS} from './outputs.js';
 import {KnobMotion} from './knob.js';
+import {debugView} from './debug-view.js';
 const device = window.parent !== window && window.parent.sq64Emulator ? window.parent.sq64Emulator : new BrowserEmulator();
 let lastState;
+const debuggerUI = debugView({request: api, save});
 const held = new Set();
 async function api(path, data = {}, raw = false) {
   if (device.locked && !['state', 'recording'].includes(path)) throw Error('Wait for the current updater or backup operation to finish');
   const result = await device.request(path, raw ? {bytes: data, transport: $('midi-route').value} : data);
-  if (result && typeof result.loaded === 'boolean') render(result); return result;
+  if (result && typeof result.loaded === 'boolean') render({...result, locked: device.locked}); return result;
 }
 const act = task => Promise.resolve().then(task).catch(error => { $('status').textContent = error.message; });
 function button(control, label, parent, pad = false) {
@@ -52,6 +54,7 @@ for (const group of OUTPUT_GROUPS) {
 ['bar1', 'bar2', 'bar3', 'bar4', 'shift'].forEach(n => button(n, n.toUpperCase(), 'bars'));
 for (const track of 'ABCD') { button(`track${track}`, track, 'matrix'); for (let i = 1; i <= 16; i++) button(track + i, String(i), 'matrix', true); }
 function render(state) {
+  debuggerUI.render(state);
   lastState = state; $('image').disabled = !!state.locked; $('load-probe').disabled = !!state.locked; $('midi-route').disabled = !!state.locked;
   for (const id of ['run', 'pause', 'step', 'poweroff', 'reset', 'version', 'update', 'release', 'send-midi']) $(id).disabled = !state.loaded || state.locked;
   document.querySelectorAll('[data-control], [data-encoder]').forEach(b => { b.disabled = !state.loaded || state.locked; });
@@ -62,7 +65,8 @@ function render(state) {
   }
   if (!state.loaded) return;
   const r = state.report; $('pc').textContent = `0x${r.pc.toString(16).padStart(8, '0')}`; $('ticks').textContent = r.board.ticks.toLocaleString(); $('irq').textContent = String(r.interrupts.delivered);
-  $('status').textContent = r.error || (r.board.poweredOff ? 'Powered off · firmware finished shutdown'
+  $('status').textContent = r.error || (r.debug?.stoppedAt != null ? `Breakpoint at 0x${r.debug.stoppedAt.toString(16).padStart(8, '0')}`
+    : r.board.poweredOff ? 'Powered off · firmware finished shutdown'
     : !state.running && r.board.ticks === 0 ? 'Firmware loaded · press Power on to start'
     : state.running && state.panel.displayFrames === 0 ? 'Running · starting firmware; waiting for the first display frame'
     : `${state.running ? 'Running' : 'Paused'} · ${state.mode} startup`);

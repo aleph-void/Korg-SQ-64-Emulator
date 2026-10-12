@@ -38,6 +38,22 @@ python -m sq64_emulator candidate.bin --headless --instructions 100000 --report 
 
 The native GUI is optional (`python -m sq64_emulator`). OS MIDI is disabled unless `--midi` is explicitly selected. Browser operation is the cross-platform default. Native tests run on Linux here; CI includes macOS and Windows, whose results have not yet been observed. See [native engine notes](docs/coverage.md) for the required Unicorn IT-state patch on longer interrupt-heavy runs.
 
+## Debug custom firmware
+
+Load your image, expand **Developer debugging**, and select **Enable debugging** in either workbench. This pauses execution and exposes single-instruction stepping, address breakpoints, CPU registers, code/RAM inspection, and a bounded instruction trace. **Run** continues past the current breakpoint once; **Power on** resets and stays paused while debugging is enabled. **Save debug report** exports registers and the trace alongside the image hash, fault details, and peripheral/interrupt reports. Debugging is disabled by default and can be turned off to restore normal execution speed.
+
+The native CLI also supports reproducible debug reports:
+
+```sh
+python -m sq64_emulator candidate.elf --headless --debug \
+  --breakpoint 0x00200008 --trace-limit 256 \
+  --inspect 0x20000000:128 --instructions 100000 --report debug.json
+```
+
+Use addresses from your firmware's linker map or disassembly; the example breakpoint is only illustrative. Repeat `--breakpoint` (up to 64 addresses) and `--inspect` (1–4096 bytes per range) for additional locations. Traces keep the last 256 instruction hook entries by default; `--trace-limit 0` disables tracing and 4096 is the maximum. A breakpoint ends the headless run successfully; faults retain diagnostics and exit with status 1. Without `--headless`, `--debug` and its breakpoint/trace settings initialize the native GUI, including subsequently loaded images.
+
+Memory inspection never invokes peripheral reads. Traces record PC/opcode bytes before execution, so a faulting or preempted instruction can appear without completing. Debugging uses instruction boundaries rather than source lines; symbol loading, watchpoints, and GDB remote connections are not implemented. See the [browser debugger notes](web/README.md#debugging-firmware) for reset, loading and MIDI behavior.
+
 ## Publish only the web app
 
 The future domain is `sq64.alephvoid.com`. [Deployment instructions](web/README.md) export only web runtime files into a directory suitable for the **root of a Pages deployment branch**. Native sources and the spec are not deployed. Nothing is pushed or published by the build command.

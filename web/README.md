@@ -18,6 +18,14 @@ The panel shows firmware-driven LED brightness and display output. Its top edge 
 
 Turn knobs with a vertical drag, the scroll wheel, or the arrow keys. Wheel and drag distance determine the number of steps; tiny trackpad events accumulate. Hold Shift while dragging or scrolling for four times finer adjustment. Arrow keys produce one step. Interactive steps are spaced in virtual time to avoid unintended firmware acceleration when the browser runs slower than the device.
 
+## Debugging firmware
+
+Expand **Developer debugging** after loading an image and select **Enable debugging**. The emulator pauses and displays CPU registers, breakpoints, a code/RAM memory viewer and recent instruction opcode bytes. **Step 1 instruction** advances one CPU instruction boundary. Enter decimal or `0x` hexadecimal addresses, then choose **Apply breakpoints and trace**; an empty list removes all breakpoints. **Run** continues past a breakpoint once and stops again if execution returns to it.
+
+Debugging is off by default. Enabling it uses slower per-instruction execution; disabling it restores the accelerated engine without resetting the machine. Reset keeps the configuration and pauses at the reset vector, while loading a new image clears it. Incoming MIDI does not resume a paused debugger. The controls are disabled during updater/backup operations.
+
+**Save debug report** downloads registers, up to 4096 recent instruction hook entries (default 256), faults, board and interrupt diagnostics, and the image hash. A trace limit of zero disables tracing. Memory inspection is limited to 4096 bytes of mapped code/RAM per request and never reads peripherals. This is an address-level debugger: ELF source symbols, source stepping, watchpoints and GDB remote connections are not implemented. Trace entries run before execution and can include a faulting or preempted instruction. Files and diagnostics stay local unless you download and share them.
+
 ## GitHub Pages from a branch
 
 GitHub Pages branch publishing selects the branch root or `/docs`, not an arbitrary `/web` folder. Keep `web/` as the development source; export **only its deployable contents** to the root of a separate deployment branch:

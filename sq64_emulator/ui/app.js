@@ -1,9 +1,11 @@
 const $ = id => document.getElementById(id);
+import {debugView} from './debug-view.js';
 let token, lastState, polling = false;
+const debuggerUI = debugView({request: api, save});
 const held = new Set();
 async function api(path, data = {}, raw = false) {
   const response = await fetch(`/api/${path}`, {method: 'POST', headers: {'Content-Type': raw ? 'application/octet-stream' : 'application/json', 'X-Session-Token': token}, body: raw ? data : JSON.stringify(data)});
-  const result = await response.json(); if (!response.ok) throw Error(result.error); render(result); return result;
+  const result = await response.json(); if (!response.ok) throw Error(result.error); if (typeof result.loaded === 'boolean') render(result); return result;
 }
 const act = task => Promise.resolve().then(task).catch(error => { $('status').textContent = error.message; });
 function button(control, label, parent, pad = false) {
@@ -34,12 +36,13 @@ function knob(name, parent) {
 ['bar1', 'bar2', 'bar3', 'bar4', 'shift'].forEach(n => button(n, n.toUpperCase(), 'bars'));
 for (const track of 'ABCD') { button(`track${track}`, track, 'matrix'); for (let i = 1; i <= 16; i++) button(track + i, String(i), 'matrix', true); }
 function render(state) {
+  debuggerUI.render(state);
   lastState = state;
   for (const id of ['run', 'pause', 'step', 'reset', 'version', 'update', 'release', 'send-midi']) $(id).disabled = !state.loaded;
   document.querySelectorAll('[data-control], [data-encoder]').forEach(b => { b.disabled = !state.loaded; });
   if (!state.loaded) return;
   const r = state.report; $('pc').textContent = `0x${r.pc.toString(16).padStart(8, '0')}`; $('ticks').textContent = r.board.ticks.toLocaleString(); $('irq').textContent = String(r.interrupts.delivered);
-  $('status').textContent = r.error || `${state.running ? 'Running' : 'Paused'} · ${state.mode} startup`;
+  $('status').textContent = r.error || (r.debug?.stoppedAt != null ? `Breakpoint at 0x${r.debug.stoppedAt.toString(16).padStart(8, '0')}` : `${state.running ? 'Running' : 'Paused'} · ${state.mode} startup`);
   $('midi').textContent = typeof state.midi === 'string' ? state.midi : state.midi.name;
   $('limitations').replaceChildren(...r.board.approximations.map(text => { const li = document.createElement('li'); li.textContent = text; return li; }));
   document.querySelectorAll('[data-control]').forEach(b => { b.setAttribute('aria-pressed', String(Boolean(state.panel.buttons[b.dataset.control]))); b.classList.toggle('lit', state.panel.leds[b.dataset.control] > 0); });

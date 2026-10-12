@@ -7,9 +7,10 @@ from capstone import Cs, CS_ARCH_ARM, CS_MODE_THUMB, CS_MODE_MCLASS, arm_const a
 from .image import Image, FLASH
 from .board import Board
 from .interrupts import CortexInterrupts
+from .debug import Debugger
 
 class Machine:
-    def __init__(self, image, *, panel_mapping=None, cycles_per_instruction=64):
+    def __init__(self, image, *, panel_mapping=None, cycles_per_instruction=64, debug=None):
         if unicorn.__version__ != '2.1.3': raise ValueError('Execution requires Unicorn 2.1.3')
         self.image = image if isinstance(image, Image) else Image.load(image)
         self.uc = unicorn.Uc(unicorn.UC_ARCH_ARM, unicorn.UC_MODE_THUMB | unicorn.UC_MODE_MCLASS)
@@ -23,6 +24,8 @@ class Machine:
         self.uc.reg_write(arm.UC_ARM_REG_XPSR, 0x01000000)
         self.uc.mem_write(0xe000ed08, self.image.vector.to_bytes(4, 'little'))
         self.error = None; self.breakpoints = set(); self.breakpoint = None; self.events = []; self.event_index = 0
+        self.debug = Debugger(self)
+        if debug is not None: self.debug.configure(**debug)
         self.decoder = Cs(CS_ARCH_ARM, CS_MODE_THUMB | CS_MODE_MCLASS); self.decode_cache = {}
         self.board = Board(self.uc, self.image, panel_mapping=panel_mapping, cycles_per_instruction=cycles_per_instruction)
         self.uc.hook_add(unicorn.UC_HOOK_CODE, self.instruction)
@@ -37,6 +40,7 @@ class Machine:
         if self.error: uc.emu_stop(); return
         if address in self.breakpoints: self.breakpoint = address; uc.emu_stop(); return
         try:
+            if self.debug.enabled and self.debug.instruction(address, size): return
             self.board.advance()
             while self.event_index < len(self.events) and self.events[self.event_index]['tick'] <= self.board.ticks:
                 self.event(self.events[self.event_index]); self.event_index += 1
@@ -85,6 +89,7 @@ class Machine:
     def run(self, instructions=10000):
         if type(instructions) is not int or not 1 <= instructions <= 10_000_000: raise ValueError('Instruction budget must be 1..10000000')
         self.breakpoint = None
+        if self.debug.enabled: self.debug.begin_run()
         if not self.error:
             try: self.uc.emu_start(self.uc.reg_read(arm.UC_ARM_REG_PC) | 1, 0xffffffff, count=instructions)
             except unicorn.UcError as error: self.fail(error)
@@ -93,7 +98,7 @@ class Machine:
     def report(self):
         irq = self.irq.result(); irq['trace'] = list(irq['trace'])
         return {'format': 'sq64-emulator-report', 'version': 1, 'imageSha256': self.image.sha256,
-                'engine': f'unicorn-{unicorn.__version__}', 'status': 'fault' if self.error else 'paused',
+                'engine': f'unicorn-{unicorn.__version__}', 'status': 'fault' if self.error else 'breakpoint' if self.debug.stopped_at is not None or self.breakpoint is not None else 'paused',
                 'error': self.error, 'pc': self.uc.reg_read(arm.UC_ARM_REG_PC), 'sp': self.uc.reg_read(arm.UC_ARM_REG_SP),
-                'breakpoint': self.breakpoint, 'board': self.board.report(), 'interrupts': irq,
+                'breakpoint': self.debug.stopped_at if self.debug.enabled else self.breakpoint, 'debug': self.debug.report(), 'board': self.board.report(), 'interrupts': irq,
                 'hardwareConformance': 'not-established'}

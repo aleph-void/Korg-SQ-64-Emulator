@@ -20,19 +20,25 @@ async function action(name, data) {
   else if (name === 'poweroff') { machine.event({type: 'power', down: true}); running = true; }
   else if (name === 'pause') running = false;
   else if (name === 'step') { running = false; machine.run(data.instructions || 1000); }
+  else if (name === 'debug') { machine.configureDebug(data); running = false; }
+  else if (name === 'debug-memory') {
+    if (running) throw Error('Pause before inspecting memory');
+    return machine.debug.memory(data.address, data.length);
+  }
   else if (name === 'reset') {
     if (!['normal', 'version', 'update'].includes(data.mode)) throw Error('Unknown boot mode');
     running = false;
     const flash = machine.mem.read(0x200000, 65536), spi = machine.board.flash.data.slice();
     const storedBytes = new Uint8Array(flash.length + spi.length); storedBytes.set(flash); storedBytes.set(spi, flash.length);
     const image = {...machine.image, segments: [{address: 0x200000, data: flash}, ...machine.image.segments.filter(s => s.address !== 0x200000)], spi, stack: new DataView(flash.buffer).getUint32(0, true), reset: new DataView(flash.buffer).getUint32(4, true), sha256: await sha256(storedBytes)};
-    machine.close(); machine = new Machine(engine, image, {...options, onMidi}); mode = data.mode;
+    const debug = machine.debug.config();
+    machine.close(); machine = new Machine(engine, image, {...options, onMidi, debug}); mode = data.mode;
     inputs = new InteractiveInputs(machine);
     if (mode !== 'normal') machine.event({type: 'button', control: 'global', down: true});
     if (mode === 'update') machine.event({type: 'button', control: 'pattern', down: true});
-    running = true;
+    running = !debug.enabled;
   } else if (name === 'event') inputs.event(data);
-  else if (name === 'midi') { machine.event({type: 'midi', data: Array.from(data)}); running = true; }
+  else if (name === 'midi') { machine.event({type: 'midi', data: Array.from(data)}); if (!machine.debug.enabled) running = true; }
   else if (name === 'replay') machine.replay(data);
   else if (name === 'recording') return machine.board.panel.events;
   else if (name === 'storage') return {flash: machine.mem.read(0x200000, 65536), spi: machine.board.flash.data.slice()};
@@ -53,8 +59,8 @@ function pump() {
       // a browser timer wake-up after every small batch of CPU instructions.
       const deadline = performance.now() + 12;
       do {
-        machine.run(50000);
-        if (machine.board.poweredOff) running = false;
+        machine.run(machine.debug.enabled ? 1000 : 50000);
+        if (machine.board.poweredOff || machine.debug.stoppedAt !== null) running = false;
         if (machine.error) { running = false; postMessage({type: 'fault', error: machine.error}); }
       } while (running && performance.now() < deadline);
     }
