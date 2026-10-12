@@ -179,6 +179,11 @@ onBeforeUnmount(() => {
     <section v-if="state.terminated" id="safety-stop" class="safety-stop" role="alert" aria-live="assertive">
       <h2>Do not flash this firmware to a real device.</h2>
       <p>{{ state.terminated.message }}</p>
+      <p v-for="result in state.terminated.tests" :key="result.id">
+        {{ result.id }}: {{ result.operation || result.title || result.detail }}
+        <span v-if="result.address != null">at 0x{{ result.address.toString(16) }}</span>
+      </p>
+      <p style="overflow-wrap: anywhere">Firmware SHA-256: {{ state.terminated.imageSha256 }}</p>
       <p>Execution and MIDI are terminated for this session. Save the reports below to investigate the firmware.</p>
     </section>
     <div class="heading">

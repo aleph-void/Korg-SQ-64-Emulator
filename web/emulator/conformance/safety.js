@@ -7,6 +7,6 @@ export function criticalStop(report) {
     reason: 'critical-conformance-pass',
     imageSha256: report.imageSha256,
     tests,
-    message: `Emulator terminated: critical test ${tests.map(row => row.id).join(', ')} passed, indicating behavior that could damage a hardware device. Do not flash this firmware to a real device.`,
+    message: report.warning || `Emulator terminated: critical test ${tests.map(row => row.id).join(', ')} passed, indicating behavior that could damage a hardware device. Do not flash this firmware to a real device.`,
   };
 }

@@ -27,6 +27,6 @@ def critical_stop(report):
         return None
     return {'reason': 'critical-conformance-pass', 'imageSha256': report.get('imageSha256'),
             'tests': tests,
-            'message': f"Emulator terminated: critical test {', '.join(row['id'] for row in tests)} passed, "
+            'message': report.get('warning') or f"Emulator terminated: critical test {', '.join(row['id'] for row in tests)} passed, "
                        'indicating behavior that could damage a hardware device. '
                        'Do not flash this firmware to a real device.'}

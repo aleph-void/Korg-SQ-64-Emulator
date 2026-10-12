@@ -15,6 +15,16 @@ function notify() {
   if (statePending) return;
   postMessage({type: 'state', state: state()}); lastState = performance.now(); statePending = true;
 }
+function terminateCritical() {
+  if (terminated) return true;
+  const stop = machine && criticalStop(machine.critical.report());
+  if (!stop) return false;
+  running = false; terminated = true;
+  const snapshot = state(); snapshot.terminated = stop; snapshot.report.status = 'terminated';
+  try { machine.close(); }
+  finally { machine = null; postMessage({type: 'terminated', state: snapshot}); self.close(); }
+  return true;
+}
 async function action(name, data) {
   if (name === 'load') {
     const bytes = new Uint8Array(data.bytes).slice();
@@ -58,7 +68,7 @@ async function action(name, data) {
     running = false;
     const flash = machine.mem.read(0x200000, 65536), spi = machine.board.flash.data.slice();
     const storedBytes = new Uint8Array(flash.length + spi.length); storedBytes.set(flash); storedBytes.set(spi, flash.length);
-    const image = {...machine.image, segments: [{address: 0x200000, data: flash}, ...machine.image.segments.filter(s => s.address !== 0x200000)], spi, stack: new DataView(flash.buffer).getUint32(0, true), reset: new DataView(flash.buffer).getUint32(4, true), sha256: await sha256(storedBytes)};
+    const image = {...machine.image, loadedImageSha256: machine.image.loadedImageSha256 || machine.image.sha256, segments: [{address: 0x200000, data: flash}, ...machine.image.segments.filter(s => s.address !== 0x200000)], spi, stack: new DataView(flash.buffer).getUint32(0, true), reset: new DataView(flash.buffer).getUint32(4, true), sha256: await sha256(storedBytes)};
     const debug = machine.debug.config();
     machine.close(); machine = new Machine(engine, image, {...options, onMidi, debug}); mode = data.mode;
     inputs = new InteractiveInputs(machine);
@@ -80,8 +90,8 @@ self.onmessage = ({data: message}) => {
   if (message.type === 'state-ack') { statePending = false; return; }
   sequence = sequence.then(async () => {
     if (terminated) return;
-    try { const result = await action(message.action, message.data); if (!terminated) { postMessage({id: message.id, result}); notify(); } }
-    catch (error) { postMessage({id: message.id, error: String(error.message || error)}); }
+    try { const result = await action(message.action, message.data); if (!terminateCritical()) { postMessage({id: message.id, result}); notify(); } }
+    catch (error) { if (terminateCritical()) return; postMessage({id: message.id, error: String(error.message || error)}); }
   });
 };
 function pump() {
@@ -94,10 +104,11 @@ function pump() {
       // cost instead of allowing 50,000 instructions to overrun every slice.
       const deadline = statePending ? start + 4 : Math.min(start + 4, lastState + FRAME_INTERVAL);
       running = execution.run(machine, deadline);
+      if (terminateCritical()) return;
       if (machine.error) postMessage({type: 'fault', error: machine.error});
     }
     if (machine && performance.now() - lastState >= FRAME_INTERVAL) notify();
-  } catch (error) { running = false; postMessage({type: 'fault', error: String(error.message || error)}); }
+  } catch (error) { if (terminateCritical()) return; running = false; postMessage({type: 'fault', error: String(error.message || error)}); }
   if (running) wake.port2.postMessage(0);
   else setTimeout(pump, 25);
 }

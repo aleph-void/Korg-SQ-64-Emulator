@@ -13,8 +13,9 @@ TIMERS = {0x40000000: 28, 0x40000400: 29, 0x40000800: 30, 0x40000c00: 50,
           0x40001000: 54, 0x40001400: 55, 0x40011400: 24}
 
 class Board:
-    def __init__(self, uc, image, *, panel_mapping=None, cycles_per_instruction=64):
-        self.uc = uc; self.flash = SpiFlash(image.spi); self.panel = Panel(panel_mapping)
+    def __init__(self, uc, image, *, panel_mapping=None, cycles_per_instruction=64, critical=None):
+        self.critical = critical
+        self.uc = uc; self.flash = SpiFlash(image.spi, critical=critical); self.panel = Panel(panel_mapping)
         self.cycles_per_instruction = cycles_per_instruction
         self.ticks = 0; self.cycles = 0; self.timer_fraction = {}; self.trace = deque(maxlen=4096)
         self.flash_rx = deque(); self.panel_rx = deque(); self.scan_position = 0
@@ -66,6 +67,9 @@ class Board:
         if len(self.midi_out) > 8192: self.midi_out = self.midi_out[-4096:]
 
     def write(self, address, size, value):
+        if self.critical:
+            self.critical.memory(address, size, value)
+            self.critical.dma_write(address, size, value, self.get)
         self.accesses.add(address)
         if address in TIMERS:
             if value & 1: self.enabled_timers.add(address)
@@ -174,6 +178,7 @@ class Board:
             self.pend(irq)
 
     def complete_dma(self):
+        if self.critical: self.critical.dma(self.get)
         # SPI2 full-duplex storage: DMA1 streams 3 (TX), 2 (RX).
         tx, rx = 0x40026058, 0x40026040
         tc, rc = self.get(tx), self.get(rx)

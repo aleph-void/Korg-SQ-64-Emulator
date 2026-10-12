@@ -6,9 +6,9 @@ import {outputLevels} from './outputs.js';
 export const TIMERS = new Map([[0x40000000, 28], [0x40000400, 29], [0x40000800, 30], [0x40000c00, 50], [0x40001000, 54], [0x40001400, 55], [0x40011400, 24]]);
 const KNOWN_WINDOWS = [...TIMERS.keys()].map(a => [a, 0x80]).concat([[0x40003800, 0x800], [0x40004400, 0x800], [0x40007000, 0x800], [0x40010000, 0x100], [0x40012000, 0x400], [0x40013000, 0x5000], [0x40020000, 0x2400], [0x40023800, 0x800], [0x40026000, 0x800], [0xe000e000, 0x2000]]);
 export class Board {
-  constructor(memory, image, {mapping = {}, onMidi = () => {}, transport = 'usb', cyclesPerInstruction = 16, syncConnected = false} = {}) {
+  constructor(memory, image, {mapping = {}, onMidi = () => {}, transport = 'usb', cyclesPerInstruction = 16, syncConnected = false, critical = null} = {}) {
     if (!Number.isInteger(cyclesPerInstruction) || cyclesPerInstruction < 1 || cyclesPerInstruction > 64) throw Error('Invalid virtual instruction timing');
-    this.mem = memory; this.flash = new SpiFlash(image.spi); this.panel = new Panel(mapping); this.usb = new UsbDevice(this);
+    this.critical = critical; this.mem = memory; this.flash = new SpiFlash(image.spi, critical); this.panel = new Panel(mapping); this.usb = new UsbDevice(this);
     this.ticks = 0; this.cycles = 0; this.cyclesPerInstruction = cyclesPerInstruction; this.timers = new Set(); this.fraction = new Map(); this.dmaReload = new Map();
     this.flashRx = []; this.panelRx = []; this.scanPosition = 0; this.uartRx = new Map([[0x40004400, []], [0x40004800, []]]);
     this.powerButton = false; this.poweredOff = false; this.syncConnected = syncConnected;
@@ -71,6 +71,7 @@ export class Board {
     return KNOWN_WINDOWS.some(([b, n]) => a >= b && a < b + n);
   }
   write(a, n, v) {
+    this.critical?.memory(a, n, v); this.critical?.dmaWrite(a, n, v, address => this.get(address));
     if (this.timerAddress(a) || a === 0x40023808 || a === 0x4002388c) { this.syncTimers(); this.nextTimerCycle = this.cycles + this.cyclesPerInstruction; }
     if (TIMERS.has(a)) { if (v & 1) this.timers.add(a); else this.timers.delete(a); }
     if (a >= 0x50000000 && a < 0x50006000) { if (n !== 4) throw Error('USB requires word access'); this.usb.write(a - 0x50000000, v); return; }
@@ -138,6 +139,7 @@ export class Board {
     return 64 * 8 * apbDivider * spiDivider;
   }
   completeDma() {
+    this.critical?.dma(address => this.get(address));
     const candidates = [];
     for (let s = 0; s < 8; s++) { const a = 0x40026010 + s * 24, c = this.get(a); if (c & 1 && this.get(a + 8) === 0x4000380c) candidates.push([a, s, c]); }
     const tx = candidates.find(r => (r[2] >>> 6 & 3) === 1), rx = candidates.find(r => (r[2] >>> 6 & 3) === 0);

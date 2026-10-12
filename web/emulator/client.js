@@ -17,11 +17,11 @@ export class BrowserEmulator extends EventTarget {
     if (this.worker) return;
     this.worker = new Worker(new URL('./worker.js', import.meta.url), {type: 'module'});
     const worker = this.worker;
-    this.worker.onerror = e => this.fault(e.message || 'Emulator worker failed');
+    this.worker.onerror = e => { if (this.worker === worker) this.fault(e.message || 'Emulator worker failed'); };
     this.worker.onmessage = ({data: m}) => {
       if (this.terminated || this.worker !== worker) return;
       const snapshot = m.state || (typeof m.result?.loaded === 'boolean' ? m.result : null);
-      const stop = snapshot && (snapshot.terminated || criticalStop(snapshot.report?.conformance));
+      const stop = snapshot && (snapshot.terminated || criticalStop(snapshot.report?.critical) || criticalStop(snapshot.report?.conformance));
       if (stop) { this.terminate(snapshot, stop); return; }
       if (m.type === 'midi') { const event = new Event('midimessage'); event.data = m.data; this.input.dispatchEvent(event); }
       else if (m.type === 'fault') this.fault(m.error);

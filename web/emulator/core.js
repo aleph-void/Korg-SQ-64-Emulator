@@ -1,3 +1,4 @@
+import {CriticalMonitor} from './critical.js';
 import {Board} from './board.js';
 import {Interrupts} from './interrupts.js';
 import {WasmBridge} from './bridge.js';
@@ -40,20 +41,24 @@ export class Machine {
     this.mem = new Memory(module, this.engine); this.scratch = module._malloc(4); this.handle = module.getValue(this.engine.handle_ptr, '*');
     for (const [base, size] of [[0, 0x4000], [0x200000, 65536], [0x8000000, 65536], [0x20000000, 0x40000], [0x40000000, 0x80000], [0x50000000, 0x40000], [0xe000e000, 0x2000]]) this.mem.map(base, size);
     for (const s of image.segments) { this.mem.write(s.address, s.data); if (s.address >= 0x200000 && s.address < 0x210000) this.mem.write(s.address + 0x7e00000, s.data); }
+    for (const base of [0x200000, 0x8000000]) this.engine.mem_protect(base, 65536, module.PROT_READ | module.PROT_EXEC);
     this.setReg('MSP', image.stack); this.setReg('PC', image.reset); this.setReg('XPSR', 0x01000000); this.mem.put(0xe000ed08, 0x200000);
-    this.board = new Board(this.mem, image, options); this.irq = new Interrupts(this); this.board.irq = this.irq;
+    this.critical = new CriticalMonitor(image.loadedImageSha256 || image.sha256);
+    this.board = new Board(this.mem, image, {...options, critical: this.critical}); this.irq = new Interrupts(this); this.board.irq = this.irq;
     this.debug = new Debugger(this); this.execution = options.execution; this.executionHooks = [];
     this.debug.configure(options.debug);
     const guard = f => (...a) => { if (this.error) return; try { f(...a); } catch (e) { this.fail(e); } };
     const instruction = pc => this.irq.instruction(pc);
     const read = (a, n) => { this.alignment(a, n); if (a >= 0x40000000) { this.board.read(a, n); this.irq.read(a, n); } };
     const write = (a, n, v) => {
+      this.critical.memory(a, n, v);
       this.alignment(a, n);
       if (a >= 0x200000 && a < 0x210000) throw Error('Write to flash execution alias');
       if (a >= 0x40000000 || a >= 0x8000000 && a < 0x8010000) { this.irq.write(a, n, v); this.board.write(a, n, v); }
     };
     this.executionCallbacks = {guard, instruction, read, write};
     this.installExecution();
+    this.hooks.push(this.engine.hook_add(module.HOOK_MEM_WRITE_UNMAPPED | module.HOOK_MEM_WRITE_PROT, (e, t, addr, n, value) => { try { this.critical.memory(Number(addr), n, Number(value)); } catch (error) { this.fail(error); } return false; }));
     this.hooks.push(this.engine.hook_add(module.HOOK_INTR, guard((e, n) => { this.bridge?.flush(); this.irq.exception(n); this.bridge?.configure(); })));
   }
   installExecution() {
@@ -82,7 +87,7 @@ export class Machine {
   }
   reg(name) { const code = this.u._uc_reg_read(this.handle, this.u['ARM_REG_' + name], this.scratch); if (code) throw Error(`Register read ${name}: ${code}`); return this.u.getValue(this.scratch, 'i32') >>> 0; }
   setReg(name, value) { this.u.setValue(this.scratch, value, 'i32'); const code = this.u._uc_reg_write(this.handle, this.u['ARM_REG_' + name], this.scratch); if (code) throw Error(`Register write ${name}: ${code}`); }
-  fail(error) { this.error = String(error.message || error); this.engine.emu_stop(); }
+  fail(error) { this.error ||= String(error.message || error); this.engine.emu_stop(); }
   alignment(a, n) {
     if (n <= 1 || a % Math.min(n, 4) === 0) return;
     const pc = this.reg('PC'), op = this.mem.get(pc, 2);
@@ -109,10 +114,11 @@ export class Machine {
   }
   run(count = 10000) {
     if (!Number.isInteger(count) || count < 1 || count > 10000000) throw Error('Invalid instruction budget');
+    if (this.critical.hit && !this.error) this.fail(this.critical.report().warning);
     if (this.debug.enabled) this.debug.beginRun();
-    if (!this.error && !this.board.poweredOff) try { this.bridge?.prepare(count); this.engine.emu_start(this.reg('PC') | 1, 0xffffffff, 0, this.bridge ? 0 : count); } catch (e) { this.fail(e); } finally { this.bridge?.flush(); }
+    if (!this.error && !this.board.poweredOff) try { this.bridge?.prepare(count); this.engine.emu_start(this.reg('PC') | 1, 0xffffffff, 0, this.bridge ? 0 : count); } catch (e) { this.fail(e); } finally { try { this.bridge?.flush(); } catch (e) { this.fail(e); } }
     return this.report();
   }
-  report() { return {format: 'sq64-emulator-report', version: 1, engine: 'unicorn-wasm-2.1.4-tci-itstate', imageSha256: this.image.sha256, status: this.error ? 'fault' : this.debug.stoppedAt !== null ? 'breakpoint' : 'paused', error: this.error, pc: this.reg('PC'), sp: this.reg('SP'), debug: this.debug.report(), board: this.board.report(), interrupts: this.irq.report(), hardwareConformance: 'not-established'}; }
+  report() { return {format: 'sq64-emulator-report', version: 1, engine: 'unicorn-wasm-2.1.4-tci-itstate', imageSha256: this.image.sha256, critical: this.critical.report(), status: this.critical.hit ? 'terminated' : this.error ? 'fault' : this.debug.stoppedAt !== null ? 'breakpoint' : 'paused', error: this.error, pc: this.reg('PC'), sp: this.reg('SP'), debug: this.debug.report(), board: this.board.report(), interrupts: this.irq.report(), hardwareConformance: 'not-established'}; }
   close() { this.bridge?.close(); for (const h of [...this.hooks, ...this.executionHooks]) this.engine.hook_del(h); this.engine.close(); this.mem.close(); this.u._free(this.scratch); this.u._free(this.engine.handle_ptr); }
 }

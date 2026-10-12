@@ -31,6 +31,7 @@ class Workbench:
                     except Exception as error: self.midi_error = str(error); self.running = False
                 if self.running and self.machine:
                     self.machine.run(2000)
+                    if self.halt_critical(): continue
                     if self.machine.error or self.machine.breakpoint is not None or self.machine.debug.stopped_at is not None: self.running = False
 
     def reset(self, mode):
@@ -42,6 +43,7 @@ class Workbench:
         internal = bytes(previous.uc.mem_read(FLASH, 0x10000)); spi = bytes(previous.board.flash.data)
         image = Image([(FLASH, internal)] + [(a, d) for a, d in previous.image.segments if a != FLASH], spi, FLASH, hashlib.sha256(internal + spi).hexdigest(), 'reset-state')
         self.machine = Machine(image, panel_mapping=self.mapping, debug=previous.debug.config())
+        self.machine.critical.image_sha256 = previous.critical.image_sha256
         self.mode = mode
         if mode != 'normal':
             self.machine.event({'type': 'button', 'control': 'global', 'down': True})
@@ -58,8 +60,16 @@ class Workbench:
         # The request holds self.lock, so execution/MIDI cannot advance between
         # receiving the report and latching the terminal state.
         self.conformance = validate_image(self.content)
-        stop = critical_stop(self.conformance)
-        if stop:
+        self.terminate(critical_stop(self.conformance))
+
+    def halt_critical(self):
+        if self.terminated_state: return True
+        stop = self.machine and critical_stop(self.machine.critical.report())
+        if stop: self.terminate(stop)
+        return bool(stop)
+
+    def terminate(self, stop):
+        if stop and not self.terminated_state:
             self.running = False
             snapshot = self.state()
             snapshot.update(terminated=stop, midi='disconnected')
@@ -138,6 +148,7 @@ def make_server(workbench, port=0):
                             if len(content) != 0x100000: raise ValueError('Storage snapshot must be 1 MiB')
                             workbench.running = False; workbench.machine.board.flash.data[:] = content
                         else: raise ValueError('Unknown operation')
+                    workbench.halt_critical()
                     self.reply(200, workbench.state())
             except (ValueError, KeyError, TypeError) as error: self.reply(400, {'error': str(error)})
     return ThreadingHTTPServer(('127.0.0.1', port), Handler)

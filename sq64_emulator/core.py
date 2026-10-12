@@ -8,6 +8,7 @@ from .image import Image, FLASH
 from .board import Board
 from .interrupts import CortexInterrupts
 from .debug import Debugger
+from .critical import CriticalMonitor
 
 class Machine:
     def __init__(self, image, *, panel_mapping=None, cycles_per_instruction=64, debug=None):
@@ -19,6 +20,7 @@ class Machine:
         for address, data in self.image.segments:
             self.uc.mem_write(address, data)
             if FLASH <= address < FLASH + 0x10000: self.uc.mem_write(address + 0x07e00000, data)
+        for base in (FLASH, 0x08000000): self.uc.mem_protect(base, 0x10000, unicorn.UC_PROT_READ | unicorn.UC_PROT_EXEC)
         stack, reset = struct.unpack('<2I', self.uc.mem_read(self.image.vector, 8))
         self.uc.reg_write(arm.UC_ARM_REG_MSP, stack); self.uc.reg_write(arm.UC_ARM_REG_PC, reset)
         self.uc.reg_write(arm.UC_ARM_REG_XPSR, 0x01000000)
@@ -27,14 +29,21 @@ class Machine:
         self.debug = Debugger(self)
         if debug is not None: self.debug.configure(**debug)
         self.decoder = Cs(CS_ARCH_ARM, CS_MODE_THUMB | CS_MODE_MCLASS); self.decode_cache = {}
-        self.board = Board(self.uc, self.image, panel_mapping=panel_mapping, cycles_per_instruction=cycles_per_instruction)
+        self.critical = CriticalMonitor(self.image.sha256)
+        self.board = Board(self.uc, self.image, panel_mapping=panel_mapping, cycles_per_instruction=cycles_per_instruction, critical=self.critical)
         self.uc.hook_add(unicorn.UC_HOOK_CODE, self.instruction)
         self.irq = CortexInterrupts(self.uc, {'instruction_limit': 10**12, 'max_deliveries': 10**9}, self.fail)
         self.irq.trace = deque(maxlen=2048); self.board.irq = self.irq
         self.uc.hook_add(unicorn.UC_HOOK_MEM_READ, self.read)
         self.uc.hook_add(unicorn.UC_HOOK_MEM_WRITE, self.write)
+        self.uc.hook_add(unicorn.UC_HOOK_MEM_WRITE_UNMAPPED | unicorn.UC_HOOK_MEM_WRITE_PROT, self.invalid_write)
 
-    def fail(self, message): self.error = str(message); self.uc.emu_stop()
+    def fail(self, message): self.error = self.error or str(message); self.uc.emu_stop()
+
+    def invalid_write(self, uc, access, address, size, value, user):
+        try: self.critical.memory(address, size, value)
+        except ValueError as error: self.fail(error)
+        return False
 
     def instruction(self, uc, address, size, user):
         if self.error: uc.emu_stop(); return
@@ -65,6 +74,7 @@ class Machine:
 
     def write(self, uc, access, address, size, value, user):
         try:
+            self.critical.memory(address, size, value)
             self.alignment(address, size)
             if FLASH <= address < FLASH + 0x10000: raise ValueError('Write to flash through execution alias')
             if address >= 0x40000000 or 0x08000000 <= address < 0x08010000:
@@ -88,6 +98,7 @@ class Machine:
 
     def run(self, instructions=10000):
         if type(instructions) is not int or not 1 <= instructions <= 10_000_000: raise ValueError('Instruction budget must be 1..10000000')
+        if self.critical.hit and not self.error: self.fail(self.critical.report()['warning'])
         self.breakpoint = None
         if self.debug.enabled: self.debug.begin_run()
         if not self.error:
@@ -98,7 +109,7 @@ class Machine:
     def report(self):
         irq = self.irq.result(); irq['trace'] = list(irq['trace'])
         return {'format': 'sq64-emulator-report', 'version': 1, 'imageSha256': self.image.sha256,
-                'engine': f'unicorn-{unicorn.__version__}', 'status': 'fault' if self.error else 'breakpoint' if self.debug.stopped_at is not None or self.breakpoint is not None else 'paused',
+                'engine': f'unicorn-{unicorn.__version__}', 'critical': self.critical.report(), 'status': 'terminated' if self.critical.hit else 'fault' if self.error else 'breakpoint' if self.debug.stopped_at is not None or self.breakpoint is not None else 'paused',
                 'error': self.error, 'pc': self.uc.reg_read(arm.UC_ARM_REG_PC), 'sp': self.uc.reg_read(arm.UC_ARM_REG_SP),
                 'breakpoint': self.debug.stopped_at if self.debug.enabled else self.breakpoint, 'debug': self.debug.report(), 'board': self.board.report(), 'interrupts': irq,
                 'hardwareConformance': 'not-established'}

@@ -68,7 +68,7 @@ function render(state) {
   validationUI.render(state);
   lastState = state;
   $('safety-stop').hidden = !state.terminated;
-  $('safety-message').textContent = state.terminated?.message || '';
+  $('safety-message').textContent = state.terminated ? state.terminated.message + '\n' + state.terminated.tests.map(r => r.id + ': ' + (r.operation || r.detail || '') + (r.address == null ? '' : ' at 0x' + r.address.toString(16))).join('\n') + '\nFirmware SHA-256: ' + state.terminated.imageSha256 : '';
   for (const id of ['run', 'pause', 'step', 'reset', 'version', 'update', 'release', 'send-midi', 'replay']) $(id).disabled = !state.loaded || !!state.terminated;
   for (const id of ['image', 'recording', 'midi-bytes']) $(id).disabled = !!state.terminated;
   document.querySelectorAll('[data-control], [data-encoder]').forEach(b => { b.disabled = !state.loaded || !!state.terminated; });
