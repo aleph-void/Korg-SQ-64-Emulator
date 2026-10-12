@@ -163,6 +163,7 @@ test('invalid editor data never starts the instance or takes the script lock', a
 
 for (const id of ['firmware-global-label', 'firmware-short-label-queue']) {
   test(`${id} runs after the virtual device has powered off`, async ({ page }) => {
+    test.slow(); // The example's real wait actions add up to ~11 s before CI overhead.
     const panel = await open(page);
     await panel.locator('#image').setInputFiles(firmware());
     await panel.locator('#script-import').setInputFiles(file(document([
@@ -179,7 +180,7 @@ for (const id of ['firmware-global-label', 'firmware-short-label-queue']) {
     actions[1].ms = 100;
     await panel.locator('#script-actions').fill(JSON.stringify(actions));
     await panel.locator('#script-run').click();
-    await expect(panel.locator('#script-status')).toHaveText('Script complete · emulator keeps running', { timeout: 25000 });
+    await expect(panel.locator('#script-status')).toHaveText('Script complete · emulator keeps running', { timeout: 60000 });
     await expect(panel.locator('#status')).toContainText('Running');
   });
 }
