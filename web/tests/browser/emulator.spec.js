@@ -42,8 +42,8 @@ test('control surface records inputs and requests startup chords (UI state only)
   await expect(panel.locator('[data-control]')).toHaveCount(85);
   await expect(panel.locator('[data-encoder]')).toHaveCount(6);
   await panel.locator('[data-encoder=tempo]').focus(); await page.keyboard.press('ArrowRight');
-  const recording = await page.evaluate(() => window.sq64Emulator.request('recording'));
-  expect(recording.some(e => e.type === 'encoder' && e.control === 'tempo' && e.delta === 1)).toBe(true);
+  // Interactive detents are recorded when their scheduled virtual edge runs.
+  await expect.poll(() => page.evaluate(async () => (await window.sq64Emulator.request('recording')).some(e => e.type === 'encoder' && e.control === 'tempo' && e.delta === 1))).toBe(true);
 });
 
 test('firmware LED brightness is visible on named controls and distinguishes dim pads', async ({page}) => {
@@ -64,6 +64,52 @@ test('firmware LED brightness is visible on named controls and distinguishes dim
   expect(styles.tap).not.toEqual(styles.A3);
   expect(styles.A1).not.toEqual(styles.A2);
   expect(styles.A2).not.toEqual(styles.A3);
+});
+
+test('top-edge output lights show independent levels and clear on shutdown and reload', async ({page}) => {
+  await page.goto('/'); await page.locator('#browser-workbench summary').click();
+  const panel = page.frameLocator('#emulator-frame');
+  await expect(panel.locator('[data-output]')).toHaveCount(17);
+  await expect(panel.locator('[data-output].lit')).toHaveCount(0);
+  await panel.locator('#load-probe').click(); await expect(panel.locator('#status')).toContainText('Running');
+  await page.evaluate(async () => {
+    const device = window.sq64Emulator; await device.request('pause');
+    const state = structuredClone(await device.request('state')); device.worker.terminate();
+    state.panel.outputs = {Amod: 32, Apitch: 180, Agate: 255, D1: 255, D8: 255};
+    window.outputTestState = state; device.dispatchEvent(new CustomEvent('state', {detail: state}));
+  });
+  await expect(panel.locator('[data-output].lit')).toHaveCount(5);
+  await expect(panel.getByRole('img', {name: 'Track A gate output: active'})).toBeVisible();
+  for (const [name, level] of [['Amod', 32], ['Apitch', 180], ['Agate', 255], ['D8', 255], ['Bpitch', 0]]) await expect(panel.locator(`[data-output=${name}]`)).toHaveAttribute('data-led', String(level));
+  const colors = await panel.locator('.output-lens').evaluateAll(elements => elements.slice(0, 3).map(e => getComputedStyle(e).backgroundColor));
+  expect(new Set(colors).size).toBe(3);
+  expect(await panel.locator('#outputs').evaluate(e => e.getBoundingClientRect().bottom <= document.querySelector('.instrument-top').getBoundingClientRect().top)).toBe(true);
+  await page.evaluate(() => { window.outputTestState.report.board.poweredOff = true; window.sq64Emulator.dispatchEvent(new CustomEvent('state', {detail: window.outputTestState})); });
+  await expect(panel.locator('[data-output].lit')).toHaveCount(0);
+  await page.evaluate(() => window.sq64Emulator.dispatchEvent(new CustomEvent('state', {detail: {loaded: false}})));
+  await expect(panel.locator('[data-output].lit')).toHaveCount(0);
+});
+
+test('parameter knobs normalize trackpad movement, support fine adjustment and release drags', async ({page}) => {
+  await page.goto('/'); await page.locator('#browser-workbench summary').click();
+  const panel = page.frameLocator('#emulator-frame');
+  await panel.locator('#load-probe').click(); await expect(panel.locator('#status')).toContainText('Running');
+  await page.evaluate(async () => {
+    const device = window.sq64Emulator; await device.request('pause'); device.worker.terminate();
+    window.knobRequests = []; device.request = async (action, data) => { if (action === 'event') window.knobRequests.push(data); return {}; };
+  });
+  const knob = panel.locator('[data-encoder=param1]');
+  await knob.evaluate(e => {
+    for (let i = 0; i < 40; i++) e.dispatchEvent(new WheelEvent('wheel', {deltaY: -1, deltaMode: 0, cancelable: true}));
+    e.dispatchEvent(new WheelEvent('wheel', {deltaY: 0, deltaMode: 0, cancelable: true}));
+    e.dispatchEvent(new WheelEvent('wheel', {deltaY: 160, deltaMode: 0, shiftKey: true, cancelable: true}));
+  });
+  await expect.poll(() => page.evaluate(() => window.knobRequests.map(e => e.delta))).toEqual([1, -1]);
+  await knob.focus(); await page.keyboard.press('ArrowRight');
+  const box = await knob.boundingBox(); await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 24, {steps: 8}); await page.mouse.up();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 100);
+  await expect.poll(() => page.evaluate(() => window.knobRequests.map(e => e.delta))).toEqual([1, -1, 1, 1, 1]);
 });
 
 

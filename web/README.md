@@ -14,7 +14,9 @@ npm run build
 
 Use **Power off** and wait for **Powered off** before restarting after a restore. Firmware saves the current workspace and project catalog during this shutdown. **Power on**, **Version mode** and **Update mode** reset immediately. Closing or reloading the page discards the session, including its emulated flash; retain a downloaded backup outside the browser.
 
-The panel shows firmware-driven LEDs and display output. LED styling currently represents on/off state in the Aleph Void accent color. Jack-voltage displays and CV/gate/sync traces are not implemented.
+The panel shows firmware-driven LED brightness and display output. Its top edge includes MOD, PITCH and GATE indicators for tracks A–C and eight trigger indicators for track D. These follow the CV stream, gate pins and trigger latch, using the Aleph Void accent color. Brightness is a relative activity estimate; calibrated jack voltages and CV/gate/sync traces are not implemented.
+
+Turn knobs with a vertical drag, the scroll wheel, or the arrow keys. Wheel and drag distance determine the number of steps; tiny trackpad events accumulate. Hold Shift while dragging or scrolling for four times finer adjustment. Arrow keys produce one step. Interactive steps are spaced in virtual time to avoid unintended firmware acceleration when the browser runs slower than the device.
 
 ## GitHub Pages from a branch
 

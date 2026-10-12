@@ -5,7 +5,7 @@ import {InteractiveInputs} from './input.js';
 import {sha256} from '../src/protocol.js';
 let engine, machine, inputs, running = false, mode = 'normal', options = {transport: 'usb'}, lastState = 0;
 const onMidi = data => postMessage({type: 'midi', data});
-const state = () => machine ? {loaded: true, running, mode, midi: 'In-browser MIDI · ' + options.transport.toUpperCase(), report: machine.report(), panel: machine.board.panel.snapshot()} : {loaded: false, running: false};
+const state = () => machine ? {loaded: true, running, mode, midi: 'In-browser MIDI · ' + options.transport.toUpperCase(), report: machine.report(), panel: {...machine.board.panel.snapshot(), outputs: machine.board.outputLevels()}} : {loaded: false, running: false};
 function notify() { postMessage({type: 'state', state: state()}); lastState = performance.now(); }
 async function action(name, data) {
   if (name === 'load') {

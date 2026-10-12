@@ -28,7 +28,7 @@ export class Panel {
     for (const [name, wire] of Object.entries(mapping)) if (!(name in this.buttons) || !Array.isArray(wire) || wire.length !== 2 || !wire.every(Number.isInteger) || wire[0] < 0 || wire[0] >= 48 || wire[1] < 0 || wire[1] >= 8) throw Error('Invalid panel wiring');
     this.mapping = mapping; this.rx = new Uint8Array(48).fill(255); this.display = new Uint8Array(8192); this.displayFrames = 0; this.events = []; this.row = 0;
     this.encoderPhase = Array(6).fill(0); this.encoderEdges = Array.from({length: 6}, () => []);
-    this.shiftTx = []; this.shiftRx = new Uint8Array(6); this.selectedRow = 0;
+    this.shiftTx = []; this.shiftRx = new Uint8Array(6); this.selectedRow = 0; this.triggers = 0;
     this.ledRows = Array.from({length: 8}, () => Array(32).fill(0)); this.ledCounts = Array(32).fill(0); this.ledSamples = 0; this.ledRow = 0;
   }
   event(event, tick) {
@@ -62,6 +62,7 @@ export class Panel {
     if (!high) this.shiftRx = this.input(this.selectedRow).slice(2);
     else {
       const mask = this.shiftTx[0]; if (mask && !(mask & (mask - 1))) this.selectedRow = Math.log2(mask);
+      if (this.shiftTx.length === 6) this.triggers = ~this.shiftTx[4] & 255;
       this.shiftTx = [];
     }
   }
@@ -70,6 +71,7 @@ export class Panel {
     if (tx.length !== 8) throw Error('Panel DMA frame must have eight bytes');
     const result = Object.keys(this.mapping).length ? Uint8Array.of(255, 255, ...this.rx.slice(this.row * 6, this.row * 6 + 6)) : this.input(this.row), mask = tx[2];
     if (mask && !(mask & (mask - 1))) {
+      this.triggers = ~tx[6] & 255;
       const row = Math.log2(mask);
       if (row !== this.row) for (let i = 0; i < 6; i++) {
         const edge = this.encoderEdges[i].shift(); if (edge) this.encoderPhase[i] = (this.encoderPhase[i] + edge + 4) % 4;

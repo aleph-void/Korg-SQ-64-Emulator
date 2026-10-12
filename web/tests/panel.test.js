@@ -20,6 +20,13 @@ test('polled SPI samples the previous selected row at the latch, preserving star
   assert.equal(received[8][2],8);assert.equal(received[9][2],8);
   p.event({type:'button',control:'global',down:false},0);assert.equal(p.input(6)[4],0);
 });
+test('drum triggers latch active-low polled outputs independently of the selected LED row', () => {
+  const p = new Panel();
+  for (const mask of [1, 128, 0]) {
+    for (const byte of [1, 0, 0, 0, 255 ^ mask, 252]) p.exchange(byte);
+    assert.notEqual(p.triggers, mask); p.latch(true); assert.equal(p.triggers, mask);
+  }
+});
 test('six encoders produce ordered quadrature edges and preserve direction reversals', () => {
   for (let i=0;i<ENCODERS.length;i++) {
     const p=new Panel();p.event({type:'encoder',control:ENCODERS[i],delta:1},0);p.event({type:'encoder',control:ENCODERS[i],delta:-1},1);

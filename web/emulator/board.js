@@ -2,6 +2,7 @@ import {SpiFlash} from './flash.js';
 import {Panel} from './panel.js';
 import {UsbDevice} from './usb.js';
 import {MidiMessages} from './midi.js';
+import {outputLevels} from './outputs.js';
 export const TIMERS = new Map([[0x40000000, 28], [0x40000400, 29], [0x40000800, 30], [0x40000c00, 50], [0x40001000, 54], [0x40001400, 55], [0x40011400, 24]]);
 const KNOWN_WINDOWS = [...TIMERS.keys()].map(a => [a, 0x80]).concat([[0x40003800, 0x800], [0x40004400, 0x800], [0x40007000, 0x800], [0x40010000, 0x100], [0x40012000, 0x400], [0x40013000, 0x5000], [0x40020000, 0x2400], [0x40023800, 0x800], [0x40026000, 0x800], [0xe000e000, 0x2000]]);
 export class Board {
@@ -17,6 +18,7 @@ export class Board {
     this.approximations = new Set(['instruction-time-clock', 'panel-electrical-timing', 'led-colorimetry', 'display-controller-commands', 'register-only-config-blocks', 'instantaneous-flash-completion', 'usb-fs-transaction-time']);
   }
   get(a, n = 4) { return this.mem.get(a, n); }
+  outputLevels() { return outputLevels(this); }
   put(a, v, n = 4) { this.mem.put(a, v, n); }
   pend(n) { this.irq?.pend(n); }
   record(value) { this.trace.push(value); if (this.trace.length > 1024) this.trace.shift(); }

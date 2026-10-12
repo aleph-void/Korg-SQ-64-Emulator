@@ -18,13 +18,25 @@ test('short clicks and double-clicks keep distinct press and release scan interv
   assert.deepEqual(received.map(e => e.down), [true, false, true, false]);
 });
 test('holds, simultaneous controls and encoder events preserve user ordering', () => {
-  const {input, machine, received} = fixture();
+  const {input, machine, received, advance} = fixture();
   input.event({type: 'button', control: 'global', down: false}); // Release a startup chord.
   input.event({type: 'button', control: 'A1', down: true});
   input.event({type: 'button', control: 'A1', down: true}); // Ignore duplicate pointer/key press.
   input.event({type: 'encoder', control: 'param1', delta: 1});
-  machine.board.ticks = 2000000; input.event({type: 'button', control: 'A1', down: false});
-  assert.equal(machine.events.length, 0); assert.equal(received.length, 4);
+  advance(2000000); input.event({type: 'button', control: 'A1', down: false});
+  assert.equal(received.length, 4);
   assert.equal(received.at(-1).tick, 2000000);
   assert.throws(() => input.event({type: 'button', control: 'unknown', down: true}), /Invalid/);
+});
+
+test('interactive detents are paced across knobs and stay inside button holds', () => {
+  const {input, machine, received, advance} = fixture();
+  input.event({type: 'button', control: 'A1', down: true});
+  input.event({type: 'encoder', control: 'param1', delta: 3});
+  input.event({type: 'encoder', control: 'param2', delta: -1});
+  input.event({type: 'button', control: 'A1', down: false});
+  assert.deepEqual(machine.events.map(e => [e.tick, e.delta ?? e.down]), [[540000, 1], [1080000, 1], [1620000, 1], [2160000, -1], [2700000, false]]);
+  for (const tick of [540000, 1080000, 1620000, 2160000, 2700000]) advance(tick);
+  assert.deepEqual(received.map(e => e.control), ['A1', 'param1', 'param1', 'param1', 'param2', 'A1']);
+  for (const event of [{control: 'unknown', delta: 1}, {control: 'tempo', delta: 1.5}, {control: 'tempo', delta: 129}]) assert.throws(() => input.event({type: 'encoder', ...event}), /Invalid/);
 });

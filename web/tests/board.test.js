@@ -14,6 +14,48 @@ function board() {
   return new Board(memory, {});
 }
 
+test('all 17 top-edge indicators decode independent CV slots, gate pins and trigger bits', () => {
+  const b = board(); assert.equal(Object.keys(b.outputLevels()).length, 17);
+  assert.ok(Object.values(b.outputLevels()).every(v => v === 0));
+  const source = 0x20001200;
+  for (const [address, value] of [[0x400264a0, 0x6035541], [0x400264a4, 8], [0x400264a8, 0x40015c40], [0x400264ac, source], [0x40015c24, 0x1300c0]]) b.put(address, value);
+  const names = ['Amod', 'Apitch', 'Bmod', 'Bpitch', 'Cmod', 'Cpitch'];
+  for (let slot = 0; slot < 8; slot++) b.put(source + slot * 4, 0x7fffff);
+  for (let slot = 0; slot < 6; slot++) {
+    b.put(source + slot * 4, -0x7fffff);
+    assert.deepEqual(names.map(name => b.outputLevels()[name]), names.map((_, i) => i === slot ? 255 : 0));
+    b.put(source + slot * 4, 0); assert.equal(b.outputLevels()[names[slot]], 128);
+    b.put(source + slot * 4, 0x7fffff);
+  }
+  for (const [track, port, pin] of [['A', 0x40020400, 12], ['B', 0x40020400, 15], ['C', 0x40020800, 9]]) {
+    b.put(port, 1 << (pin * 2)); b.put(port + 20, 0);
+    assert.equal(b.outputLevels()[track + 'gate'], 255);
+    b.write(port + 24, 4, 1 << pin); assert.equal(b.outputLevels()[track + 'gate'], 0);
+    b.write(port + 24, 4, 1 << (pin + 16)); assert.equal(b.outputLevels()[track + 'gate'], 255);
+    b.put(port, 0); assert.equal(b.outputLevels()[track + 'gate'], 0);
+  }
+  for (let bit = 0; bit < 8; bit++) {
+    b.panel.scanFrame(Uint8Array.of(0, 0, 1, 0, 0, 0, 255 ^ (1 << bit), 252));
+    assert.deepEqual(Array.from({length: 8}, (_, i) => b.outputLevels()[`D${i + 1}`]), Array.from({length: 8}, (_, i) => i === bit ? 255 : 0));
+  }
+  b.panel.scanFrame(Uint8Array.of(0, 0, 2, 0, 0, 0, 255, 252));
+  assert.ok(Object.values(b.outputLevels()).every(v => v === 0));
+  b.put(source, -0x7fffff); b.poweredOff = true;
+  assert.ok(Object.values(b.outputLevels()).every(v => v === 0));
+});
+
+test('CV indicators ignore disabled or unsupported DMA and invalid source addresses', () => {
+  const b = board();
+  const config = [[0x400264a0, 0x6035541], [0x400264a4, 8], [0x400264a8, 0x40015c40], [0x400264ac, 0x20001200], [0x40015c24, 0x1300c0]];
+  for (const [address, value] of config) b.put(address, value);
+  assert.equal(b.outputLevels().Amod, 128);
+  for (const priority of [0, 1, 2, 3]) { b.put(0x400264a0, 0x6005541 | priority << 16); assert.equal(b.outputLevels().Amod, 128); }
+  for (const bit of [6, 8, 9, 10, 11, 13, 18, 25]) { b.put(0x400264a0, 0x6035541 ^ (1 << bit)); assert.equal(b.outputLevels().Amod, 0); }
+  b.put(0x400264a0, 0x6035541);
+  for (const [address, value] of config) { b.put(address, 0); assert.equal(b.outputLevels().Amod, 0); b.put(address, value); }
+  for (const address of [0x20001201, 0x2003fff0, 0x8000000, 0xffffffff]) { b.put(0x400264ac, address); assert.equal(b.outputLevels().Amod, 0); }
+});
+
 test('attached virtual USB host drives VBUS without changing other GPIO inputs', () => {
   const b = board(); b.put(0x40020010, 0x81);
   b.read(0x40020010, 4); assert.equal(b.get(0x40020010), 0x281);

@@ -1,6 +1,8 @@
 const $ = id => document.getElementById(id);
 import {BrowserEmulator} from './client.js';
 import {displayPixels} from './display.js';
+import {OUTPUT_GROUPS} from './outputs.js';
+import {KnobMotion} from './knob.js';
 const device = window.parent !== window && window.parent.sq64Emulator ? window.parent.sq64Emulator : new BrowserEmulator();
 let lastState;
 const held = new Set();
@@ -25,12 +27,24 @@ function knob(name, parent) {
   const wrap = document.createElement('div'); wrap.className = 'knob';
   const b = document.createElement('button'); b.className = 'dial'; b.dataset.encoder = name; b.setAttribute('aria-label', name + ' encoder'); b.disabled = true;
   const label = document.createElement('label'); label.textContent = name; wrap.append(b, label); $(parent).append(wrap);
-  const turn = delta => act(() => api('event', {type: 'encoder', control: name, delta})); let previous;
-  b.addEventListener('wheel', e => { e.preventDefault(); turn(e.deltaY < 0 ? 1 : -1); }, {passive: false});
+  const turn = delta => { if (delta && !b.disabled) act(() => api('event', {type: 'encoder', control: name, delta})); }; let previous;
+  const motion = new KnobMotion();
+  b.addEventListener('wheel', e => { if (b.disabled) return; e.preventDefault(); turn(motion.wheel(e)); }, {passive: false});
   b.addEventListener('keydown', e => { if (['ArrowLeft', 'ArrowRight'].includes(e.key)) { e.preventDefault(); turn(e.key === 'ArrowRight' ? 1 : -1); } });
-  b.addEventListener('pointerdown', e => { previous = e.clientY; b.setPointerCapture(e.pointerId); });
-  b.addEventListener('pointermove', e => { if (previous !== undefined && Math.abs(e.clientY - previous) > 5) { turn(e.clientY < previous ? 1 : -1); previous = e.clientY; } });
-  b.addEventListener('pointerup', () => { previous = undefined; }); b.addEventListener('pointercancel', () => { previous = undefined; });
+  b.addEventListener('pointerdown', e => { if (b.disabled) return; motion.reset(); previous = e.clientY; b.setPointerCapture(e.pointerId); });
+  b.addEventListener('pointermove', e => { if (previous !== undefined) { turn(motion.drag(previous - e.clientY, e.shiftKey)); previous = e.clientY; } });
+  const release = () => { previous = undefined; motion.reset(); };
+  b.addEventListener('pointerup', release); b.addEventListener('pointercancel', release); b.addEventListener('lostpointercapture', release); b.addEventListener('blur', release);
+}
+for (const group of OUTPUT_GROUPS) {
+  const section = document.createElement('div'); section.className = 'output-group'; section.setAttribute('role', 'group'); section.setAttribute('aria-label', `Track ${group.label} outputs`);
+  const label = document.createElement('span'); label.className = 'output-track'; label.textContent = group.label; section.append(label);
+  for (const {id, label, name} of group.outputs) {
+    const light = document.createElement('span'); light.className = 'output-indicator'; light.dataset.output = id; light.dataset.led = '0'; light.setAttribute('role', 'img'); light.setAttribute('aria-label', `${name}: off`); light.title = name;
+    const lens = document.createElement('span'); lens.className = 'output-lens'; lens.setAttribute('aria-hidden', 'true');
+    const text = document.createElement('span'); text.textContent = label; text.setAttribute('aria-hidden', 'true'); light.append(lens, text); section.append(light);
+  }
+  $('outputs').append(section);
 }
 ['tempo', 'swing'].forEach(n => knob(n, 'left-knobs')); ['param1', 'param2', 'param3', 'param4'].forEach(n => knob(n, 'param-knobs'));
 ['tap', 'record', 'stop', 'play', 'control'].forEach(n => button(n, n.toUpperCase(), 'transport'));
@@ -41,6 +55,11 @@ function render(state) {
   lastState = state; $('image').disabled = !!state.locked; $('load-probe').disabled = !!state.locked; $('midi-route').disabled = !!state.locked;
   for (const id of ['run', 'pause', 'step', 'poweroff', 'reset', 'version', 'update', 'release', 'send-midi']) $(id).disabled = !state.loaded || state.locked;
   document.querySelectorAll('[data-control], [data-encoder]').forEach(b => { b.disabled = !state.loaded || state.locked; });
+  for (const {outputs} of OUTPUT_GROUPS) for (const {id, name} of outputs) {
+    const light = document.querySelector(`[data-output="${id}"]`), level = state.loaded && !state.report.board.poweredOff ? state.panel.outputs?.[id] || 0 : 0;
+    light.dataset.led = String(level); light.classList.toggle('lit', level > 0); light.style.setProperty('--led-intensity', String(level / 255));
+    light.setAttribute('aria-label', `${name}: ${level ? 'active' : 'off'}`);
+  }
   if (!state.loaded) return;
   const r = state.report; $('pc').textContent = `0x${r.pc.toString(16).padStart(8, '0')}`; $('ticks').textContent = r.board.ticks.toLocaleString(); $('irq').textContent = String(r.interrupts.delivered);
   $('status').textContent = r.error || (r.board.poweredOff ? 'Powered off · firmware finished shutdown'
