@@ -12,3 +12,12 @@ test('display renders low-nibble-first pixels with the observed bottom-to-top ro
   assert.equal(pixels[3], 255);
   assert.throws(() => displayPixels(new Uint8Array(8191)), /frame/);
 });
+
+test('display conversion reuses and completely refreshes an existing pixel buffer', () => {
+  const frame = new Uint8Array(8192).fill(255), pixels = new Uint8ClampedArray(256 * 64 * 4);
+  assert.equal(displayPixels(frame, pixels), pixels);
+  assert.equal(pixels[2], 255);
+  frame.fill(0); displayPixels(frame, pixels);
+  assert.equal(pixels[2], 0); assert.equal(pixels.at(-1), 255);
+  assert.throws(() => displayPixels(frame, new Uint8ClampedArray(1)), /buffer/);
+});

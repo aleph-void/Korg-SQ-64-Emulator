@@ -4,14 +4,24 @@ import {displayPixels} from './display.js';
 import {OUTPUT_GROUPS} from './outputs.js';
 import {KnobMotion} from './knob.js';
 import {debugView} from './debug-view.js';
+import {frameRenderer} from './pacing.js';
 const device = window.parent !== window && window.parent.sq64Emulator ? window.parent.sq64Emulator : new BrowserEmulator();
 let lastState;
 const debuggerUI = debugView({request: api, save});
 const held = new Set();
+const queueRender = frameRenderer(render);
+const displayContext = $('display').getContext('2d'), displayImage = displayContext.createImageData(256, 64);
+const displayedBytes = new Uint8Array(8192);
+let displayDrawn = false, limitations;
+function update(state) {
+  // Debugger commands use this state before their promise resolves (including
+  // the checkbox's pending state); only the instrument paint is deferred.
+  debuggerUI.render(state); queueRender(state);
+}
 async function api(path, data = {}, raw = false) {
   if (device.locked && !['state', 'recording'].includes(path)) throw Error('Wait for the current updater or backup operation to finish');
   const result = await device.request(path, raw ? {bytes: data, transport: $('midi-route').value} : data);
-  if (result && typeof result.loaded === 'boolean') render({...result, locked: device.locked}); return result;
+  if (result && typeof result.loaded === 'boolean') update({...result, locked: device.locked}); return result;
 }
 const act = task => Promise.resolve().then(task).catch(error => { $('status').textContent = error.message; });
 function button(control, label, parent, pad = false) {
@@ -54,7 +64,6 @@ for (const group of OUTPUT_GROUPS) {
 ['bar1', 'bar2', 'bar3', 'bar4', 'shift'].forEach(n => button(n, n.toUpperCase(), 'bars'));
 for (const track of 'ABCD') { button(`track${track}`, track, 'matrix'); for (let i = 1; i <= 16; i++) button(track + i, String(i), 'matrix', true); }
 function render(state) {
-  debuggerUI.render(state);
   lastState = state; $('image').disabled = !!state.locked; $('load-probe').disabled = !!state.locked; $('midi-route').disabled = !!state.locked;
   for (const id of ['run', 'pause', 'step', 'poweroff', 'reset', 'version', 'update', 'release', 'send-midi']) $(id).disabled = !state.loaded || state.locked;
   document.querySelectorAll('[data-control], [data-encoder]').forEach(b => { b.disabled = !state.loaded || state.locked; });
@@ -73,12 +82,18 @@ function render(state) {
   for (const id of ['run', 'pause', 'step', 'poweroff', 'release', 'send-midi']) $(id).disabled ||= r.board.poweredOff;
   document.querySelectorAll('[data-control], [data-encoder]').forEach(b => { b.disabled ||= r.board.poweredOff; });
   $('midi').textContent = typeof state.midi === 'string' ? state.midi : state.midi.name;
-  $('limitations').replaceChildren(...r.board.approximations.map(text => { const li = document.createElement('li'); li.textContent = text; return li; }));
+  const nextLimitations = r.board.approximations.join('\n');
+  if (limitations !== nextLimitations) {
+    limitations = nextLimitations;
+    $('limitations').replaceChildren(...r.board.approximations.map(text => { const li = document.createElement('li'); li.textContent = text; return li; }));
+  }
   document.querySelectorAll('[data-control]').forEach(b => { b.setAttribute('aria-pressed', String(Boolean(state.panel.buttons[b.dataset.control]))); const level = state.panel.leds[b.dataset.control] || 0; b.classList.toggle('lit', level > 0); b.dataset.led = String(level); b.style.setProperty('--led-intensity', String(level / 255)); b.setAttribute('aria-description', level > 0 ? 'Firmware indicator lit' : 'Firmware indicator off'); });
   document.querySelectorAll('[data-encoder]').forEach(b => { b.style.setProperty('--rotation', `${state.panel.encoders[b.dataset.encoder] * 12}deg`); });
-  const context = $('display').getContext('2d'), pixels = context.createImageData(256, 64);
-  pixels.data.set(displayPixels(state.panel.display));
-  context.putImageData(pixels, 0, 0); $('display-status').textContent = state.panel.displayFrames ? `${state.panel.displayFrames} FRAME TRANSACTIONS` : state.running ? 'STARTING FIRMWARE…' : 'WAITING FOR FIRMWARE';
+  if (!displayDrawn || state.panel.display.some((byte, i) => byte !== displayedBytes[i])) {
+    displayPixels(state.panel.display, displayImage.data); displayContext.putImageData(displayImage, 0, 0);
+    displayedBytes.set(state.panel.display); displayDrawn = true;
+  }
+  $('display-status').textContent = state.panel.displayFrames ? `${state.panel.displayFrames} FRAME TRANSACTIONS` : state.running ? 'STARTING FIRMWARE…' : 'WAITING FOR FIRMWARE';
   $('midi-log').textContent = r.board.midiOut.slice(-32).map(p => `${p.tick}: ${p.byte.toString(16).padStart(2, '0')}`).join('\n') || 'No output';
 }
 $('image').addEventListener('change', () => act(async () => { const f = $('image').files[0]; if (f) { if (f.size > 4 * 1024 * 1024) throw Error('Image exceeds 4 MiB'); await api('load', await f.arrayBuffer(), true); } }));
@@ -96,9 +111,9 @@ document.addEventListener('fullscreenchange', () => { $('fullscreen').textConten
 $('report').addEventListener('click', () => { if (lastState?.loaded) save(lastState.report, 'sq64-execution.json'); });
 $('recording').addEventListener('click', () => act(async () => save(await device.request('recording'), 'sq64-inputs.json')));
 $('replay').addEventListener('change', () => act(async () => { const f = $('replay').files[0]; if (f) await api('replay', JSON.parse(await f.text())); }));
-device.addEventListener('state', event => render(event.detail));
+device.addEventListener('state', event => update(event.detail));
 device.addEventListener('fault', event => { $('status').textContent = event.detail; });
-if (device.state) render(device.state);
+if (device.state) update(device.state);
 
 $('load-probe').addEventListener('click', () => act(async () => {
   if (device.locked) throw Error('Wait for the current operation');

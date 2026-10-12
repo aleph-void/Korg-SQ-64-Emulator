@@ -18,6 +18,8 @@ export class BrowserEmulator extends EventTarget {
       if (m.type === 'midi') { const event = new Event('midimessage'); event.data = m.data; this.input.dispatchEvent(event); }
       else if (m.type === 'fault') this.fault(m.error);
       else if (m.type === 'state') {
+        // Bound periodic snapshots to one in flight if the UI thread stalls.
+        this.worker.postMessage({type: 'state-ack'});
         this.state = {...m.state, locked: this.locked}; this.loaded = m.state.loaded;
         this.input.setState(this.loaded && !m.state.report?.error && !m.state.report?.board.poweredOff ? 'connected' : 'disconnected'); this.output.setState(this.input.state);
         this.dispatchEvent(new CustomEvent('state', {detail: this.state}));

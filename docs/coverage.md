@@ -40,7 +40,7 @@ The Python backend remains a separate, less complete model; the browser compatib
 
 ## Browser execution performance
 
-Memory access uses current WebAssembly heap views with mapped-region bounds checks. Timer counters advance lazily at register accesses and scheduled overflows; interrupt delivery remains at the same instruction boundary. Panel wiring tables are prepared once. The worker runs short batches within a 12 ms time slice before yielding for input. These changes do not increase virtual time per instruction or skip firmware code.
+Memory access uses current WebAssembly heap views with mapped-region bounds checks. Timer counters advance lazily at register accesses and scheduled overflows; interrupt delivery remains at the same instruction boundary. Panel wiring tables are prepared once. The worker adapts instruction batches to measured execution cost, targeting 2 ms batches within a 4 ms work slice before yielding for input or the next display update. An abrupt increase in execution cost can overrun one batch before it adapts. These changes do not increase virtual time per instruction or skip firmware code.
 
 Private stock/custom comparisons after three million instructions matched all mapped memory, registers, SPI, IRQ traces, display, LEDs and MIDI. Normal-mode samples were 5.5–6.3 times faster, and update-mode samples 2.6–2.7 times faster, on the test host. Optimized Chrome cold boots reached the first frame at about four seconds and USB configuration at 56–57 seconds. Performance depends on the host and firmware; the model is still slower than the physical device.
 
@@ -49,6 +49,10 @@ The next optimization adds an original C bridge to the WASM engine. It filters o
 
 
 Release 0.1.1 was checked in Chrome 155 on Linux with private stock 2.03 and custom 2.04 images: first display appeared at 2.4–2.5 seconds and USB configured at 26–27 seconds, versus the previous 56–57 seconds. All six knobs changed the firmware framebuffer, a short A1 click changed its PWM level from 12 to 195, PLAY lit and the cursor advanced, and TAP alternated between 0 and 255. The public 44-test core and 11-test Chrome suites passed, including original-probe backup/restore and all 224 update packets. Top-edge CV/output visualization was still pending in that release.
+
+The subsequent presentation pacing fix targets 60 state updates per second and permits only one periodic snapshot in flight. A stalled UI does not accumulate old snapshots or stop CPU execution. Instrument painting coalesces incoming states at the browser's animation frame; display conversion reuses its pixel buffer and redraws only changed framebuffer bytes. Explicit debugger state updates remain immediate. The firmware's LED pattern and virtual clock are unchanged.
+
+A 35-second private stock 2.03 cold-start comparison in headless Chrome on the same host measured median state intervals of 52.6 ms before and 16.9 ms after; worst intervals were 73.1 ms and 18.1 ms. Median CPU batches fell from 6.5 ms to 1.8 ms and the sampled pause response from 13.2 ms to 2.2 ms. USB startup remained about 27 seconds. These are host-specific observations, not real-time or physical-device timing guarantees. Public regressions exercise adaptive batch deadlines, stopping, snapshot backpressure, coalesced paints and buffer reuse alongside debugger, input, backup and firmware-transfer flows.
 
 
 ## Top-edge indicators and knob sensitivity
