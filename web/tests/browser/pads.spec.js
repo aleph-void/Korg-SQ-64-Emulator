@@ -28,7 +28,7 @@ async function setup(page, native) {
     await expect(page.locator('[data-control=A1]')).toBeEnabled();
     return {panel: page, events: async () => [...events]};
   }
-  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
+  await page.goto('/'); await page.locator('#browser-workbench').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   const buffer = Buffer.alloc(65536);
   buffer.writeUInt32LE(0x20040000, 0); buffer.writeUInt32LE(0x200009, 4); buffer.set([0xfe, 0xe7], 8);

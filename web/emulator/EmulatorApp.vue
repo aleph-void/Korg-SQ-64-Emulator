@@ -4,6 +4,7 @@ import { BrowserEmulator } from './client.js';
 import { frameRenderer } from './pacing.js';
 import { save } from '../src/download.js';
 import DebugPanel from './DebugPanel.vue';
+import WorkspaceTabs from '../src/WorkspaceTabs.vue';
 import ValidationPanel from './ValidationPanel.vue';
 import InstrumentPanel from './InstrumentPanel.vue';
 import ScriptPanel from './ScriptPanel.vue';
@@ -12,6 +13,13 @@ import { submitFirmware } from './firmware-update.js';
 import { IMAGE_SIZE, parseVsb, sha256 } from '../src/protocol.js';
 import { REGISTRY_URL, fetchRegistry, fetchFirmware, importEntryScripts } from './registry.js';
 
+const activeTool = ref('firmware');
+const toolTabs = computed(() => [
+  { id: 'firmware', label: 'Firmware', active: state.value.updating },
+  { id: 'scripts', label: 'UI scripts', active: state.value.scripting },
+  { id: 'midi', label: 'MIDI' },
+  { id: 'inspect', label: 'Inspect', active: state.value.report?.debug?.enabled },
+]);
 const sharedDevice = window.parent !== window && window.parent.sq64Emulator;
 const device = sharedDevice || new BrowserEmulator();
 const state = shallowRef(device.state || { loaded: false, running: false });
@@ -21,7 +29,7 @@ const route = ref('usb'),
   midiBytes = ref('90 3c 64'),
   error = ref(''),
   loading = ref(false);
-const imageName = ref(''),
+const imageName = ref(state.value.loaded ? 'Current session firmware' : ''),
   loadError = ref('');
 const repoEntries = shallowRef(null), repoSelected = ref(''), repoMessage = ref(''), repoBusy = ref(false);
 const repoEntry = computed(() => (repoEntries.value || []).find((entry) => entry.id === repoSelected.value));
@@ -282,7 +290,8 @@ device.addEventListener('fault', fault);
 onMounted(() => {
   if (sharedDevice) {
     observer = new ResizeObserver(() => {
-      if (window.frameElement) window.frameElement.style.height = document.documentElement.scrollHeight + 'px';
+      const height = Math.ceil(document.body.getBoundingClientRect().height);
+      if (window.frameElement && height) window.frameElement.style.height = height + 'px';
     });
     observer.observe(document.body);
   }
@@ -298,12 +307,12 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <header hidden>
-    <a href="https://alephvoid.com" class="brand"
-      ><img src="../assets/aleph-void.png" alt="" /><span>Aleph Void<small>SQ-64 / FIRMWARE WORKBENCH</small></span></a
-    ><span class="badge" id="engine">CORTEX-M7 · WEBASSEMBLY</span>
+  <header v-if="!sharedDevice" class="app-header">
+    <a href="../" class="brand"><img src="../assets/aleph-void.png" alt="" />
+      <span>Aleph Void<small>SQ-64 WORKSPACE</small></span></a>
+    <a class="header-link" href="../?workspace=tools">Device tools ↗</a>
   </header>
-  <main>
+  <main :class="{ embedded: sharedDevice }">
     <section v-if="state.terminated" id="safety-stop" class="safety-stop" role="alert" aria-live="assertive">
       <h2>Do not flash this firmware to a real device.</h2>
       <p>{{ state.terminated.message }}</p>
@@ -316,178 +325,191 @@ onBeforeUnmount(() => {
     </section>
     <div class="heading">
       <div>
-        <p class="eyebrow">BUILD. PLAY. INSPECT.</p>
-        <h1>Browser firmware workbench.</h1>
-        <p>Load firmware here, then press Power on. First startup can take a minute or more.</p>
+        <p class="eyebrow">FIRMWARE WORKSPACE</p>
+        <h1>SQ-64 emulator</h1>
       </div>
-      <label class="file-button"
-        >Load firmware<input
-          type="file"
-          id="image"
-          :disabled="fileDisabled"
-          @change="loadFile"
-      /></label>
+      <span class="engine-label" id="engine">WebAssembly <span aria-hidden="true">/</span> Cortex-M7</span>
     </div>
-    <p id="image-status" role="status" :hidden="!loading && !loadError && !imageName">
-      {{ loading ? 'Loading firmware…' : loadError || `Loaded: ${imageName}` }}
-    </p>
-    <div class="official-firmware">
-      <a href="https://www.korg.com/us/support/download/software/0/872/4737/" target="_blank" rel="noopener noreferrer"
-        >Korg download and terms</a
-      >
-      <p>
-        Download the official updater ZIP from Korg, extract the .VSB file, and load it with the firmware button above.
-      </p>
-    </div>
-    <label
-      >MIDI route<select id="midi-route" v-model="route" :disabled="fileDisabled">
-        <option value="usb">USB sequencer</option>
-        <option value="din">DIN MIDI (test probe)</option>
-      </select></label
-    ><button id="load-probe" :disabled="fileDisabled" @click="loadProbe">Load original integration probe</button>
-    <p class="hint">
-      The probe is original test firmware for this emulator. It stages incoming updates in emulated flash and returns
-      synthetic backup data. It is not deployable SQ-64 firmware.
-    </p>
-    <div class="firmware-repo">
-      <button id="repo-browse" :disabled="repoBusy" @click="browseRepository">
-        {{ repoEntries ? 'Refresh firmware repository' : 'Browse firmware repository' }}</button
-      ><template v-if="repoEntries && repoEntries.length">
-        <label
-          >Community firmware<select id="repo-list" v-model="repoSelected" :disabled="repoBusy || fileDisabled">
-            <option v-for="entry in repoEntries" :key="entry.id" :value="entry.id">{{ entry.name }}</option>
-          </select></label
-        ><button id="repo-load" :disabled="fileDisabled || !repoEntry" @click="loadRepositoryFirmware">
-          Load selected firmware
-        </button>
-      </template>
-      <p v-if="repoEntry" class="hint">
-        {{ repoEntry.description }}
-        <a :href="repoEntry.repo" target="_blank" rel="noopener noreferrer">Source at {{ repoEntry.ref?.slice(0, 12) }}</a
-        ><template v-if="repoEntry.validation">
-          · <a :href="REGISTRY_URL + repoEntry.validation" target="_blank" rel="noopener noreferrer">Validation report</a></template
-        ><template v-if="repoEntry.scripts.length">
-          · ships {{ repoEntry.scripts.length }} UI script{{ repoEntry.scripts.length === 1 ? '' : 's' }}, imported into UI
-          scripts below on load</template
-        >
-      </p>
-      <p v-if="repoEntries" class="hint">
-        Community images are built from pinned public sources and validated by the
-        <a href="https://github.com/aleph-void/Korg-SQ-64-Custom-Firmware-Repo" target="_blank" rel="noopener noreferrer"
-          >firmware repository</a
-        >
-        pipeline before publication. Passing validation does not make an image safe to flash on a real device.
-      </p>
-      <p id="repo-status" role="status" :hidden="!repoMessage">{{ repoMessage }}</p>
-    </div>
-    <div class="toolbar">
-      <div>
-        <button id="run" :disabled="interactionDisabled" @click="act(() => api('run'))">Run</button
-        ><button id="pause" :disabled="interactionDisabled" @click="act(() => api('pause'))">Pause</button
-        ><button id="step" :disabled="interactionDisabled" @click="act(() => api('step', { instructions: 1000 }))">
-          Step 1,000
-        </button>
+    <section class="session-bar" aria-label="Firmware and power">
+      <div class="session-image">
+        <span class="session-icon" aria-hidden="true">▤</span>
+        <div class="session-file">
+          <span class="field-caption">FIRMWARE IMAGE</span>
+          <strong :title="imageName">{{ imageName || 'Choose a firmware image to begin' }}</strong>
+          <p id="image-status" role="status" :class="{ 'sr-only': imageName && !loading && !loadError }" :hidden="!loading && !loadError && !imageName">
+            {{ loading ? 'Loading firmware…' : loadError || `Loaded: ${imageName}` }}
+          </p>
+          <span v-if="!imageName && !loadError && !loading" class="file-hint">Local VSB, BIN or ELF · files stay on this computer</span>
+        </div>
       </div>
-      <div>
-        <button
-          id="poweroff"
-          title="Hold the power button until firmware finishes saving"
-          :disabled="interactionDisabled"
-          @click="act(() => api('poweroff'))"
-        >
-          Power off</button
-        ><button id="reset" :disabled="controlsDisabled" @click="reset('normal')">Power on</button
-        ><button id="version" title="Power on with GLOBAL held" :disabled="controlsDisabled" @click="reset('version')">
-          Version mode</button
-        ><button
-          id="update"
-          title="Power on with GLOBAL and PATTERN held"
-          :disabled="controlsDisabled"
-          @click="reset('update')"
-        >
-          Update mode</button
-        ><button id="release" :disabled="interactionDisabled" @click="releaseStartup">Release startup buttons</button
-        ><button
-          id="restore-firmware"
-          title="Discard saved projects, settings and staged updates, and return to the originally loaded image"
-          :disabled="controlsDisabled"
-          @click="restoreFirmware"
-        >
-          Restore firmware
+      <label class="file-button" :class="{ disabled: fileDisabled, primary: !state.loaded }">{{ imageName ? 'Change firmware' : 'Load firmware' }}
+        <input type="file" id="image" :disabled="fileDisabled" @change="loadFile" />
+      </label>
+      <div class="session-power">
+        <button id="reset" class="primary" :disabled="controlsDisabled" title="Start in normal mode. Restarts immediately if already running." @click="reset('normal')">
+          <span aria-hidden="true">⏻</span> {{ state.running ? 'Restart' : 'Power on' }}
         </button>
+        <button id="poweroff" :disabled="interactionDisabled" title="Hold the power button until firmware finishes saving" @click="act(() => api('poweroff'))">Power off</button>
       </div>
-    </div>
-    <details id="firmware-update" class="scripts">
-      <summary>Send a second firmware image</summary>
-      <p>Start the loaded firmware in Update mode, then select a second .VSB and send it to the running updater.</p>
-      <label>Update firmware (.VSB)<input id="update-image" type="file" :disabled="fileDisabled" @change="selectUpdateFile" /></label>
-      <p id="update-file-info" style="overflow-wrap: anywhere">{{ updateLoading ? 'Reading update firmware…' : updateFileInfo }}</p>
-      <label><input id="update-older" type="checkbox" v-model="updateOlder" :disabled="fileDisabled" />Allow reinstalling the same version or downgrading</label>
-      <div class="toolbar"><div>
-        <button id="send-update" :disabled="updateDisabled" @click="startUpdate">Send update firmware</button>
-        <button id="stop-update" :disabled="!state.updating || state.scripting" @click="stopUpdate">Stop transfer</button>
-      </div></div>
-      <progress aria-label="Firmware transfer progress" max="100" :value="updateProgress"></progress>
-      <p id="update-status" role="status">{{ updateMessage || 'Ready after selecting an update file and starting Update mode' }}</p>
-      <p class="hint">Files stay in memory. Scripts use this selection for the firmware-update action.
-        Packet acknowledgement does not verify installation. The selected image's installation writes are permitted;
-        unexpected protected writes still stop execution.</p>
-    </details>
-    <ValidationPanel :state="controlState" :request="api" />
-    <InstrumentPanel
-      :state="instrumentState"
-      :reset-key="resetKey"
-      @input="act(() => api('event', $event))"
-      @error="error = $event"
-    />
-    <ScriptPanel :state="state" :loading="loading || updateLoading" :play="playScript" />
-    <div class="details">
-      <section>
-        <p class="eyebrow">EXECUTION</p>
+    </section>
+    <div class="execution-bar">
+      <div class="session-status">
+        <span class="status-dot" :class="{ running: state.running, fault: error || state.terminated || report?.error }" aria-hidden="true"></span>
         <div id="status" role="status">{{ status }}</div>
-        <dl>
-          <dt>Program counter</dt>
-          <dd id="pc">{{ pc }}</dd>
-          <dt>Instructions</dt>
-          <dd id="ticks">{{ report?.board.ticks.toLocaleString() || '0' }}</dd>
-          <dt>Interrupts delivered</dt>
-          <dd id="irq">{{ report?.interrupts.delivered || 0 }}</dd>
-          <dt>MIDI endpoint</dt>
-          <dd id="midi">{{ midi }}</dd>
-        </dl>
-        <button id="report" :disabled="!state.loaded" @click="save(report, 'sq64-execution.json')">
-          Save execution report</button
-        ><button id="recording" :disabled="!!state.terminated" @click="act(async () => save(await device.request('recording'), 'sq64-inputs.json'))">
-          Save input recording</button
-        ><label>Replay recording<input id="replay" type="file" accept=".json" :disabled="controlsDisabled" @change="replay" /></label>
+      </div>
+      <div class="execution-actions">
+        <button v-if="state.scripting || state.updating" class="activity-link" @click="activeTool = state.scripting ? 'scripts' : 'firmware'">
+          {{ state.scripting ? 'Script running ↘' : 'Firmware transfer ↘' }}
+        </button>
+        <button id="run" :hidden="state.running" :disabled="interactionDisabled" @click="act(() => api('run'))">Run</button>
+        <button id="pause" :hidden="!state.running" :disabled="interactionDisabled" @click="act(() => api('pause'))">Pause</button>
+      </div>
+    </div>
+    <InstrumentPanel :state="instrumentState" :reset-key="resetKey"
+      @input="act(() => api('event', $event))" @error="error = $event" />
+    <p v-if="!state.loaded" class="getting-started">Start with your firmware file, then choose <strong>Power on</strong>. First startup can take a minute or more.</p>
+    <div class="workbench-tools">
+      <WorkspaceTabs v-model="activeTool" :tabs="toolTabs" prefix="workbench" label="Emulator tools" />
+      <section id="workbench-firmware" role="tabpanel" aria-labelledby="workbench-tab-firmware" :hidden="activeTool !== 'firmware'" tabindex="0">
+        <div class="tool-grid">
+          <section class="tool-card">
+            <h2>Firmware library</h2>
+            <p>Load a local image above, or explore community builds.</p>
+            <div class="firmware-repo">
+              <button id="repo-browse" :disabled="repoBusy" @click="browseRepository">
+                {{ repoEntries ? 'Refresh firmware repository' : 'Browse firmware repository' }}</button
+              ><template v-if="repoEntries && repoEntries.length">
+                <label
+                  >Community firmware<select id="repo-list" v-model="repoSelected" :disabled="repoBusy || fileDisabled">
+                    <option v-for="entry in repoEntries" :key="entry.id" :value="entry.id">{{ entry.name }}</option>
+                  </select></label
+                ><button id="repo-load" :disabled="fileDisabled || !repoEntry" @click="loadRepositoryFirmware">
+                  Load selected firmware
+                </button>
+              </template>
+              <p v-if="repoEntry" class="hint">
+                {{ repoEntry.description }}
+                <a :href="repoEntry.repo" target="_blank" rel="noopener noreferrer">Source at {{ repoEntry.ref?.slice(0, 12) }}</a
+                ><template v-if="repoEntry.validation">
+                  · <a :href="REGISTRY_URL + repoEntry.validation" target="_blank" rel="noopener noreferrer">Validation report</a></template
+                ><template v-if="repoEntry.scripts.length">
+                  · ships {{ repoEntry.scripts.length }} UI script{{ repoEntry.scripts.length === 1 ? '' : 's' }}, imported into UI
+                  scripts tab on load</template
+                >
+              </p>
+              <p v-if="repoEntries" class="hint">
+                Community images are built from pinned public sources and validated by the
+                <a href="https://github.com/aleph-void/Korg-SQ-64-Custom-Firmware-Repo" target="_blank" rel="noopener noreferrer"
+                  >firmware repository</a
+                >
+                pipeline before publication. Passing validation does not make an image safe to flash on a real device.
+              </p>
+              <p id="repo-status" role="status" :hidden="!repoMessage">{{ repoMessage }}</p>
+            </div>
+            <p class="source-link"><a href="https://www.korg.com/us/support/download/software/0/872/4737/" target="_blank" rel="noopener noreferrer">Korg download and terms ↗</a>
+              <span>Extract the .VSB from the official updater ZIP.</span></p>
+            <details class="sub-details"><summary>Try the emulator without vendor firmware</summary>
+              <p class="hint">Original test firmware with synthetic backup data and update staging. It is not deployable SQ-64 firmware.</p>
+              <button id="load-probe" :disabled="fileDisabled" @click="loadProbe">Load original integration probe</button>
+            </details>
+          </section>
+          <section class="tool-card">
+            <h2>Startup &amp; recovery</h2>
+            <p>Start with a button combination held, then release it when the display appears.</p>
+            <div class="toolbar"><div>
+              <button id="version" title="Power on with GLOBAL held" :disabled="controlsDisabled" @click="reset('version')">Version mode</button>
+              <button id="update" title="Power on with GLOBAL and PATTERN held" :disabled="controlsDisabled" @click="reset('update')">Update mode</button>
+              <button id="release" :disabled="interactionDisabled" @click="releaseStartup">Release startup buttons</button>
+            </div></div>
+            <label class="route-field">MIDI route for next load<select id="midi-route" v-model="route" :disabled="fileDisabled">
+              <option value="usb">USB sequencer</option><option value="din">DIN MIDI (test probe)</option>
+            </select></label>
+            <details class="sub-details"><summary>Restore the original image</summary>
+              <p class="hint">Discards saved projects, settings and staged updates in this session. Power off and wait for shutdown before a normal restart to preserve projects.</p>
+              <button id="restore-firmware" :disabled="controlsDisabled" @click="restoreFirmware">Restore firmware</button>
+            </details>
+          </section>
+        </div>
+        <details id="firmware-update" class="scripts">
+          <summary>Send a second firmware image</summary>
+          <p>Start the loaded firmware in Update mode, then select a second .VSB and send it to the running updater.</p>
+          <label>Update firmware (.VSB)<input id="update-image" type="file" :disabled="fileDisabled" @change="selectUpdateFile" /></label>
+          <p id="update-file-info" style="overflow-wrap: anywhere">{{ updateLoading ? 'Reading update firmware…' : updateFileInfo }}</p>
+          <label><input id="update-older" type="checkbox" v-model="updateOlder" :disabled="fileDisabled" />Allow reinstalling the same version or downgrading</label>
+          <div class="toolbar"><div>
+            <button id="send-update" :disabled="updateDisabled" @click="startUpdate">Send update firmware</button>
+            <button id="stop-update" :disabled="!state.updating || state.scripting" @click="stopUpdate">Stop transfer</button>
+          </div></div>
+          <progress aria-label="Firmware transfer progress" max="100" :value="updateProgress"></progress>
+          <p id="update-status" role="status">{{ updateMessage || 'Ready after selecting an update file and starting Update mode' }}</p>
+          <p class="hint">Files stay in memory. Scripts use this selection for the firmware-update action.
+            Packet acknowledgement does not verify installation. The selected image's installation writes are permitted;
+            unexpected protected writes still stop execution.</p>
+        </details>
       </section>
-      <section>
-        <p class="eyebrow">MODEL COVERAGE</p>
-        <p>
-          The core executes the supplied ARM firmware. Virtual time is deterministic, not cycle accurate. Unverified
-          board wiring and peripheral behavior remain explicit below.
-        </p>
-        <ul id="limitations">
-          <li v-for="limitation in report?.board.approximations || ['No firmware loaded']" :key="limitation">
-            {{ limitation }}
-          </li>
-        </ul>
-        <p class="hint">
-          Version holds GLOBAL at power-on; Update holds GLOBAL + PATTERN. Release the startup buttons after the screen
-          appears. Use Power off and wait for shutdown before restarting to preserve projects. Power on resets
-          immediately; closing the page discards this session. Restore firmware discards saved projects, settings and
-          staged updates, returning the device to the originally loaded image.
-        </p>
+      <section id="workbench-scripts" role="tabpanel" aria-labelledby="workbench-tab-scripts" :hidden="activeTool !== 'scripts'" tabindex="0">
+        <ScriptPanel :state="state" :loading="loading || updateLoading" :play="playScript" />
       </section>
-      <section>
-        <p class="eyebrow">MIDI MONITOR</p>
-        <label>Inject USB MIDI bytes<input id="midi-bytes" spellcheck="false" v-model="midiBytes" /></label
-        ><button id="send-midi" :disabled="interactionDisabled" @click="sendMidi">Send to firmware</button>
-        <pre id="midi-log">{{ midiLog }}</pre>
+      <section id="workbench-midi" role="tabpanel" aria-labelledby="workbench-tab-midi" :hidden="activeTool !== 'midi'" tabindex="0">
+        <div class="tool-heading"><h2>MIDI monitor</h2><p>Send messages to the running firmware and inspect its output.</p></div>
+        <div class="details midi-details">
+          <section>
+            <p class="eyebrow">MESSAGES</p>
+            <label>Inject MIDI bytes (hex)<input id="midi-bytes" spellcheck="false" v-model="midiBytes" /></label
+            ><button id="send-midi" :disabled="interactionDisabled" @click="sendMidi">Send to firmware</button>
+            <pre id="midi-log">{{ midiLog }}</pre>
+          </section>
+          <section><p class="eyebrow">CONNECTION</p><p>{{ midi }}</p>
+            <p class="hint">The MIDI route is chosen when loading firmware. Configure it in the Firmware tab before loading a new image.</p>
+          </section>
+        </div>
+      </section>
+      <section id="workbench-inspect" role="tabpanel" aria-labelledby="workbench-tab-inspect" :hidden="activeTool !== 'inspect'" tabindex="0">
+        <div class="tool-heading"><h2>Inspect firmware</h2><p>Validate the loaded image, inspect execution, or step through instructions.</p></div>
+        <ValidationPanel :state="controlState" :request="api" />
+        <div class="details">
+          <section>
+            <p class="eyebrow">EXECUTION</p>
+            <div class="toolbar"><button id="step" :disabled="interactionDisabled" @click="act(() => api('step', { instructions: 1000 }))">Step 1,000</button></div>
+            <dl>
+              <dt>Program counter</dt>
+              <dd id="pc">{{ pc }}</dd>
+              <dt>Instructions</dt>
+              <dd id="ticks">{{ report?.board.ticks.toLocaleString() || '0' }}</dd>
+              <dt>Interrupts delivered</dt>
+              <dd id="irq">{{ report?.interrupts.delivered || 0 }}</dd>
+              <dt>MIDI endpoint</dt>
+              <dd id="midi">{{ midi }}</dd>
+            </dl>
+            <button id="report" :disabled="!state.loaded" @click="save(report, 'sq64-execution.json')">
+              Save execution report</button
+            ><button id="recording" :disabled="!!state.terminated" @click="act(async () => save(await device.request('recording'), 'sq64-inputs.json'))">
+              Save input recording</button
+            ><label>Replay recording<input id="replay" type="file" accept=".json" :disabled="controlsDisabled" @change="replay" /></label>
+          </section>
+          <section>
+            <p class="eyebrow">MODEL COVERAGE</p>
+            <p>
+              The core executes the supplied ARM firmware. Virtual time is deterministic, not cycle accurate. Unverified
+              board wiring and peripheral behavior remain explicit below.
+            </p>
+            <ul id="limitations">
+              <li v-for="limitation in report?.board.approximations || ['No firmware loaded']" :key="limitation">
+                {{ limitation }}
+              </li>
+            </ul>
+            <p class="hint">
+              Version holds GLOBAL at power-on; Update holds GLOBAL + PATTERN. Release the startup buttons after the screen
+              appears. Use Power off and wait for shutdown before restarting to preserve projects. Power on resets
+              immediately; closing the page discards this session. Restore firmware discards saved projects, settings and
+              staged updates, returning the device to the originally loaded image.
+            </p>
+          </section>
+        </div>
+        <DebugPanel :state="controlState" :request="api" />
       </section>
     </div>
-    <DebugPanel :state="controlState" :request="api" />
-    <footer>
+    <footer v-if="!sharedDevice">
       <span>Aleph Void · Independent tools. Not affiliated with Korg.</span
       ><span>Linux · macOS · Windows / no vendor firmware bundled</span
       ><span

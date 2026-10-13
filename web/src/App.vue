@@ -7,8 +7,11 @@ import { DemoSession } from './demo.js';
 import { BrowserEmulator } from '../emulator/client.js';
 import { emulatorUpdateContext } from '../emulator/firmware-update.js';
 import { save } from './download.js';
+import WorkspaceTabs from './WorkspaceTabs.vue';
 
 const version = __APP_VERSION__;
+const workspace = ref(new URLSearchParams(window.location.search).get('workspace') === 'tools' ? 'tools' : 'emulator');
+const workspaceTabs = [ { id: 'emulator', label: 'Browser emulator' }, { id: 'tools', label: 'Device tools' } ];
 const emulator = new BrowserEmulator();
 const safetyStop = shallowRef(null);
 window.sq64Emulator = emulator;
@@ -44,8 +47,7 @@ const status = ref('Ready when you are'),
   logText = ref('');
 const fileInfo = ref('No firmware selected'),
   backupInfo = ref('No backup selected');
-const workbenchOpen = ref(true),
-  workbench = ref(null),
+const workbench = ref(null),
   logElement = ref(null);
 watch(() => busy.value || awaitingCompletion.value, (value) => emulator.setLocked(value), { flush: 'sync' });
 function emulatorState(event) { scripting.value = !!event.detail.scripting; emulatorUpdating.value = !!event.detail.updating; }
@@ -165,9 +167,10 @@ function connectDemo() {
   status.value = 'Simulation ready';
 }
 async function connectEmulator() {
-  workbenchOpen.value = true;
+
   if (!emulator.loaded) {
-    status.value = 'Load your firmware in the browser workbench below, then connect to it here.';
+    status.value = 'Load firmware in Browser emulator, then return to Device tools to connect.';
+    workspace.value = 'emulator';
     await nextTick();
     workbench.value.scrollIntoView({ behavior: 'smooth' });
     return;
@@ -306,7 +309,7 @@ onBeforeUnmount(() => {
 <template>
   <header>
     <a class="brand" href="./"
-      ><img src="../assets/aleph-void.png" alt="" /><span>Aleph Void <small>SQ-64 / DEVICE TOOLS</small></span></a
+      ><img src="../assets/aleph-void.png" alt="" /><span>Aleph Void <small>SQ-64 WORKSPACE</small></span></a
     ><span class="local"><i></i> Files stay on this computer</span>
   </header>
   <main>
@@ -315,177 +318,176 @@ onBeforeUnmount(() => {
       <p>{{ safetyStop.message }}</p>
       <p>Loaded file SHA-256: {{ safetyStop.imageSha256 }}</p>
     </section>
-    <div class="intro">
-      <div>
-        <p class="eyebrow">YOUR SEQUENCER. YOUR FIRMWARE.</p>
-        <h1>Keep your ideas.<br />Make room for what’s next.</h1>
-        <p>Back up your SQ-64 and install firmware directly from your browser.</p>
+    <WorkspaceTabs v-model="workspace" :tabs="workspaceTabs" prefix="workspace" label="Workspace" />
+    <section id="workspace-tools" role="tabpanel" aria-labelledby="workspace-tab-tools" :hidden="workspace !== 'tools'" tabindex="0">
+      <div class="intro">
+        <div><p class="eyebrow">SQ-64 / DEVICE TOOLS</p><h1>Back up, restore, update.</h1>
+          <p>Connect your SQ-64 or the browser emulator, then choose an operation.</p></div>
       </div>
-      <div class="grid-art" aria-hidden="true"></div>
-    </div>
-    <details id="device-tools" open>
-      <summary>Device tools · back up, restore, update firmware</summary>
-      <div class="workspace">
-        <aside class="connection">
-          <p class="eyebrow">01 / CONNECTION</p>
-          <h2>Your SQ-64</h2>
-          <p id="connection-state" role="status">{{ connectionState }}</p>
-          <button id="connect" class="primary" :disabled="locked" @click="enableMidi">Enable MIDI access</button>
-          <div id="ports" :hidden="!portsVisible">
+      <div id="device-tools">
+        <div class="workspace">
+          <aside class="connection">
+            <p class="eyebrow">01 / CONNECTION</p>
+            <h2>Your SQ-64</h2>
+            <p id="connection-state" role="status">{{ connectionState }}</p>
+            <button id="connect" class="primary" :disabled="locked" @click="enableMidi">Enable MIDI access</button>
+            <div id="ports" :hidden="!portsVisible">
+              <label
+                >MIDI input<select id="input" v-model="inputId" :disabled="locked">
+                  <option v-for="port in inputs" :key="port.id" :value="port.id">{{ port.label }}</option>
+                </select></label
+              ><label
+                >MIDI output<select id="output" v-model="outputId" :disabled="locked">
+                  <option v-for="port in outputs" :key="port.id" :value="port.id">{{ port.label }}</option>
+                </select></label
+              ><button id="open" :disabled="locked" @click="openPorts">Connect selected ports</button>
+            </div>
             <label
-              >MIDI input<select id="input" v-model="inputId" :disabled="locked">
-                <option v-for="port in inputs" :key="port.id" :value="port.id">{{ port.label }}</option>
+              >Global MIDI channel<select id="channel" v-model.number="channel" :disabled="locked">
+                <option v-for="number in 16" :key="number" :value="number - 1">{{ number }}</option>
               </select></label
-            ><label
-              >MIDI output<select id="output" v-model="outputId" :disabled="locked">
-                <option v-for="port in outputs" :key="port.id" :value="port.id">{{ port.label }}</option>
-              </select></label
-            ><button id="open" :disabled="locked" @click="openPorts">Connect selected ports</button>
-          </div>
-          <label
-            >Global MIDI channel<select id="channel" v-model.number="channel" :disabled="locked">
-              <option v-for="number in 16" :key="number" :value="number - 1">{{ number }}</option>
-            </select></label
-          ><button id="emulated" class="primary" :disabled="locked || !!safetyStop" @click="connectEmulator">
-            Connect browser emulator</button
-          ><button id="demo" class="quiet" :disabled="locked" @click="connectDemo">Try a simulated device</button>
-          <p class="hint">
-            Use a desktop browser with Web MIDI support. Connect by USB. Select the SQ-64’s sequencer ports.
-          </p>
-          <div id="mode-note" class="notice" :hidden="!modeNote">{{ modeNote }}</div>
-        </aside>
-        <section class="tool">
-          <nav aria-label="Device tools">
-            <button data-tab="backup" :aria-pressed="tab === 'backup'" @click="tab = 'backup'">Back up</button
-            ><button data-tab="update" :aria-pressed="tab === 'update'" @click="tab = 'update'">Update firmware</button
-            ><button data-tab="restore" :aria-pressed="tab === 'restore'" @click="tab = 'restore'">Restore</button>
-          </nav>
-          <div id="backup" class="tab" :hidden="tab !== 'backup'">
-            <p class="eyebrow">02 / PRESERVE YOUR WORK</p>
-            <h2>A copy of your ideas.</h2>
-            <p>
-              Save projects, patterns, controls, global settings, and user scales to a file on this computer. Use normal
-              operation mode and stop playback first.
-            </p>
-            <label
-              >What to include<select id="scope" v-model="scope" :disabled="locked">
-                <option value="all">All saved projects, current project, and settings</option>
-                <option value="current">Current project and settings</option>
-                <option value="settings">Settings and user scales</option>
-              </select></label
-            >
+            ><button id="emulated" class="primary" :disabled="locked || !!safetyStop" @click="connectEmulator">
+              Connect browser emulator</button
+            ><button id="demo" class="quiet" :disabled="locked" @click="connectDemo">Try a simulated device</button>
             <p class="hint">
-              The backup excludes firmware, factory calibration, and undocumented storage. Keep the device idle until
-              capture finishes.
+              Use a desktop browser with Web MIDI support. Connect by USB. Select the SQ-64’s sequencer ports.
             </p>
-            <button id="backup-start" class="primary" :disabled="locked || !connected" @click="startBackup">
-              Download backup
-            </button>
-          </div>
-          <div id="update" class="tab" :hidden="tab !== 'update'">
-            <p class="eyebrow">02 / INSTALL FIRMWARE</p>
-            <h2>A new chapter.</h2>
-            <p>
-              Choose your firmware file, then start the SQ-64 in update mode by holding GLOBAL + PATTERN while powering
-              on.
-            </p>
-            <label class="file-box"
-              >Select a .VSB firmware file<input
-                id="firmware"
-                type="file"
-                :disabled="locked"
-                @change="loadFirmware"
-            /></label>
-            <p class="hint">
-              <a
-                id="official-firmware-zip"
-                href="https://cdn.korg.com/jp/support/download/files/765e1fc1c8b5e0fe446fefb7199dd6bf.zip"
-                target="_blank"
-                rel="noopener noreferrer"
-                >Download Korg 2.03 firmware ZIP</a
+            <div id="mode-note" class="notice" :hidden="!modeNote">{{ modeNote }}</div>
+          </aside>
+          <section class="tool">
+            <nav aria-label="Device tools">
+              <button data-tab="backup" :aria-pressed="tab === 'backup'" @click="tab = 'backup'">Back up</button
+              ><button data-tab="update" :aria-pressed="tab === 'update'" @click="tab = 'update'">Update firmware</button
+              ><button data-tab="restore" :aria-pressed="tab === 'restore'" @click="tab = 'restore'">Restore</button>
+            </nav>
+            <div id="backup" class="tab" :hidden="tab !== 'backup'">
+              <p class="eyebrow">02 / PRESERVE YOUR WORK</p>
+              <h2>Back up your SQ-64</h2>
+              <p>
+                Save projects, patterns, controls, global settings, and user scales to a file on this computer. Use normal
+                operation mode and stop playback first.
+              </p>
+              <label
+                >What to include<select id="scope" v-model="scope" :disabled="locked">
+                  <option value="all">All saved projects, current project, and settings</option>
+                  <option value="current">Current project and settings</option>
+                  <option value="settings">Settings and user scales</option>
+                </select></label
               >
-              · Extract the .VSB file before selecting it.
-            </p>
-            <div id="file-info" class="file-info">{{ fileInfo }}</div>
-            <label class="check"
-              ><input id="older" type="checkbox" v-model="older" :disabled="locked" />Allow reinstalling the same version
-              or a downgrade</label
-            ><label class="check"
-              ><input id="ready" type="checkbox" v-model="ready" :disabled="locked" />I have saved my work and will keep
-              USB and power connected until the device confirms completion.</label
-            >
-            <p class="hint">
-              Checksums detect damage; they do not prove that custom firmware works. Interrupted flash programming can
-              prevent USB recovery.
-            </p>
-            <button
-              id="update-start"
-              class="primary"
-              :disabled="locked || !connected || !firmware || !ready"
-              @click="startUpdate"
-            >
-              Install selected firmware
-            </button>
-            <div id="completion" class="notice" :hidden="!awaitingCompletion">
-              <strong>Transmission finished.</strong> Keep power connected. Wait for completion on the SQ-64 display
-              before restarting.<button id="confirm-completion" @click="confirmCompletion">
-                The device confirms completion
+              <p class="hint">
+                The backup excludes firmware, factory calibration, and undocumented storage. Keep the device idle until
+                capture finishes.
+              </p>
+              <button id="backup-start" class="primary" :disabled="locked || !connected" @click="startBackup">
+                Download backup
               </button>
             </div>
-          </div>
-          <div id="restore" class="tab" :hidden="tab !== 'restore'">
-            <p class="eyebrow">02 / RESTORE YOUR WORK</p>
-            <h2>Pick up where you left off.</h2>
-            <p>
-              Restore a backup created here. Included projects and settings overwrite matching device slots. Slots
-              recorded as empty are left unchanged.
-            </p>
-            <label class="file-box"
-              >Select a backup file<input
-                id="backup-file"
-                type="file"
-                accept=".json"
-                :disabled="locked"
-                @change="loadBackup"
-            /></label>
-            <div id="backup-info" class="file-info">{{ backupInfo }}</div>
-            <label class="check"
-              ><input id="restore-ready" type="checkbox" v-model="restoreReady" :disabled="locked" />I have backed up the
-              device’s current contents and want to overwrite the included slots.</label
-            ><button
-              id="restore-start"
-              class="primary"
-              :disabled="locked || !connected || !archive || !restoreReady"
-              @click="startRestore"
-            >
-              Restore included data
-            </button>
-            <p class="hint">
-              Use normal operation mode. After restoring, inspect projects and save/restart as appropriate. Device
-              acknowledgements alone do not verify persistence.
-            </p>
-          </div>
-          <div id="activity" aria-live="polite">
-            <div class="activity-heading">
-              <span id="status">{{ status }}</span
-              ><span id="percent">{{ percent }}</span>
+            <div id="update" class="tab" :hidden="tab !== 'update'">
+              <p class="eyebrow">02 / INSTALL FIRMWARE</p>
+              <h2>Install firmware</h2>
+              <p>
+                Choose your firmware file, then start the SQ-64 in update mode by holding GLOBAL + PATTERN while powering
+                on.
+              </p>
+              <label class="file-box"
+                >Select a .VSB firmware file<input
+                  id="firmware"
+                  type="file"
+                  :disabled="locked"
+                  @change="loadFirmware"
+              /></label>
+              <p class="hint">
+                <a
+                  id="official-firmware-zip"
+                  href="https://cdn.korg.com/jp/support/download/files/765e1fc1c8b5e0fe446fefb7199dd6bf.zip"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  >Download Korg 2.03 firmware ZIP</a
+                >
+                · Extract the .VSB file before selecting it.
+              </p>
+              <div id="file-info" class="file-info">{{ fileInfo }}</div>
+              <label class="check"
+                ><input id="older" type="checkbox" v-model="older" :disabled="locked" />Allow reinstalling the same version
+                or a downgrade</label
+              ><label class="check"
+                ><input id="ready" type="checkbox" v-model="ready" :disabled="locked" />I have saved my work and will keep
+                USB and power connected until the device confirms completion.</label
+              >
+              <p class="hint">
+                Checksums detect damage; they do not prove that custom firmware works. Interrupted flash programming can
+                prevent USB recovery.
+              </p>
+              <button
+                id="update-start"
+                class="primary"
+                :disabled="locked || !connected || !firmware || !ready"
+                @click="startUpdate"
+              >
+                Install selected firmware
+              </button>
+              <div id="completion" class="notice" :hidden="!awaitingCompletion">
+                <strong>Transmission finished.</strong> Keep power connected. Wait for completion on the SQ-64 display
+                before restarting.<button id="confirm-completion" @click="confirmCompletion">
+                  The device confirms completion
+                </button>
+              </div>
             </div>
-            <progress id="progress" max="100" :value="progress"></progress>
-            <pre id="log" ref="logElement">{{ logText }}</pre>
-          </div>
-        </section>
+            <div id="restore" class="tab" :hidden="tab !== 'restore'">
+              <p class="eyebrow">02 / RESTORE YOUR WORK</p>
+              <h2>Restore a backup</h2>
+              <p>
+                Restore a backup created here. Included projects and settings overwrite matching device slots. Slots
+                recorded as empty are left unchanged.
+              </p>
+              <label class="file-box"
+                >Select a backup file<input
+                  id="backup-file"
+                  type="file"
+                  accept=".json"
+                  :disabled="locked"
+                  @change="loadBackup"
+              /></label>
+              <div id="backup-info" class="file-info">{{ backupInfo }}</div>
+              <label class="check"
+                ><input id="restore-ready" type="checkbox" v-model="restoreReady" :disabled="locked" />I have backed up the
+                device’s current contents and want to overwrite the included slots.</label
+              ><button
+                id="restore-start"
+                class="primary"
+                :disabled="locked || !connected || !archive || !restoreReady"
+                @click="startRestore"
+              >
+                Restore included data
+              </button>
+              <p class="hint">
+                Use normal operation mode. After restoring, inspect projects and save/restart as appropriate. Device
+                acknowledgements alone do not verify persistence.
+              </p>
+            </div>
+            <div id="activity" aria-live="polite">
+              <div class="activity-heading">
+                <span id="status">{{ status }}</span
+                ><span id="percent">{{ percent }}</span>
+              </div>
+              <progress id="progress" max="100" :value="progress"></progress>
+              <pre id="log" ref="logElement">{{ logText }}</pre>
+            </div>
+          </section>
+        </div>
       </div>
-    </details>
-    <details id="browser-workbench" ref="workbench" :open="workbenchOpen" @toggle="workbenchOpen = $event.target.open">
-      <summary>Browser emulator · run your firmware here</summary>
-      <iframe
-        id="emulator-frame"
-        title="SQ-64 browser firmware emulator"
-        allow="fullscreen"
-        allowfullscreen
-        src="emulator/index.html"
-      ></iframe>
-    </details>
+    </section>
+    <section id="workspace-emulator" role="tabpanel" aria-labelledby="workspace-tab-emulator" :hidden="workspace !== 'emulator'" tabindex="0">
+      <div id="browser-workbench" ref="workbench">
+        <iframe
+          id="emulator-frame"
+          title="SQ-64 browser firmware emulator"
+          allow="fullscreen"
+          allowfullscreen
+          src="emulator/index.html"
+        ></iframe>
+      </div>
+    </section>
     <footer>
       <span>Aleph Void · Independent tools. Not affiliated with Korg. · v{{ version }}</span
       ><span>No account. No uploads. No vendor firmware bundled.</span

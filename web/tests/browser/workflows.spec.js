@@ -1,7 +1,7 @@
 import {test, expect} from './fixtures.js';
 import {syntheticVsb} from '../fixtures.js';
 
-test.beforeEach(async ({page}) => { await page.goto('/'); });
+test.beforeEach(async ({page}) => { await page.goto('/?workspace=tools'); });
 test('Aleph Void identity, canonical domain and entirely local assets', async ({page}) => {
   const remote = []; page.on('request', r => { if (!r.url().startsWith('http://127.0.0.1:4173/')) remote.push(r.url()); });
   await page.reload();
@@ -25,6 +25,7 @@ test('capture and restore an original synthetic current-project archive', async 
 });
 test('validating files and confirming completion are separate steps', async ({page}) => {
   await page.locator('#demo').click();
+  await page.locator('#workspace-tab-tools').click();
   await page.getByRole('button', {name: 'Update firmware'}).click();
   await page.locator('#firmware').setInputFiles({name: 'bad.vsb', mimeType: 'application/octet-stream', buffer: Buffer.from('invalid')});
   await expect(page.locator('#update-start')).toBeDisabled();

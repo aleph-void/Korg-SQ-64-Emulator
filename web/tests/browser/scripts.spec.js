@@ -14,9 +14,9 @@ function firmware() {
 }
 async function open(page, embedded = false) {
   await page.goto(embedded ? '/' : '/emulator/');
-  if (embedded) await page.locator('#browser-workbench[open]').waitFor();
+  if (embedded) await page.locator('#browser-workbench').waitFor();
   const panel = embedded ? page.frameLocator('#emulator-frame') : page;
-  await panel.locator('#ui-scripts summary').click();
+  await panel.locator('#workbench-tab-scripts').click();
   await expect(panel.locator('#script-new')).toBeEnabled();
   return panel;
 }

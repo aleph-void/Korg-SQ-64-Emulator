@@ -143,8 +143,8 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <details id="ui-scripts" class="scripts">
-    <summary>UI scripts</summary>
+  <section id="ui-scripts" class="scripts">
+    <h2>UI scripts</h2>
     <p>Build a sequence of panel actions, or edit its JSON. Wait and press durations use milliseconds of browser time.
       The emulator keeps running after the script unless you add Power off.</p>
     <div class="script-library">
@@ -212,5 +212,5 @@ onBeforeUnmount(() => {
       Power on resets immediately. Power off waits for firmware shutdown. Stop cancels remaining actions; held controls stay held,
       except an interrupted timed press is released. Send update firmware uses the separate update VSB selection above;
       its allowOlder setting is stored in the action. Stop also cancels an active transfer. Scripts contain no firmware or saved device data.</p>
-  </details>
+  </section>
 </template>

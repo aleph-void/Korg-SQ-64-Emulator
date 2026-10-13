@@ -47,13 +47,13 @@ for (const embedded of [false, true]) test(`critical pass terminates the actual 
     };
   });
   await page.goto(embedded ? '/' : '/emulator/');
-  if (embedded) await page.locator('#browser-workbench[open]').waitFor();
+  if (embedded) await page.locator('#browser-workbench').waitFor();
   const panel = embedded ? page.frameLocator('#emulator-frame') : page;
   await panel.locator('#image').setInputFiles(firmware());
-  await panel.getByText('Developer debugging', {exact: true}).click();
+  await panel.locator('#workbench-tab-inspect').click(); await panel.getByText('Developer debugging', {exact: true}).click();
   await panel.locator('#debug-enabled').check();
   await panel.locator('#run').click();
-  await panel.locator('#validate-image').click();
+  await panel.locator('#workbench-tab-inspect').click(); await panel.locator('#validate-image').click();
   await expect(panel.locator('#safety-stop')).toContainText('Do not flash this firmware to a real device.');
   await expect(panel.locator('#safety-stop')).toContainText('PKG-001');
   await expect(panel.locator('#validation-summary')).toContainText('UNSAFE');
@@ -81,7 +81,7 @@ for (const embedded of [false, true]) test(`critical pass terminates the actual 
     expect(blocked.state.report).toEqual(execution);
     await page.frames().find(frame => frame.url().includes('/emulator/')).goto('/emulator/');
     await expect(panel.locator('#safety-stop')).toBeVisible();
-    await page.locator('#browser-workbench[open]').waitFor();
+    await page.locator('#browser-workbench').waitFor();
     await expect(page.locator('#emulator-safety-stop')).toBeVisible();
   }
   checkPatched();
@@ -92,7 +92,7 @@ test('a critical detector that fails does not terminate execution', async ({page
   await page.goto('/emulator/');
   await page.locator('#image').setInputFiles(firmware(true));
   await page.locator('#run').click();
-  await page.locator('#validate-image').click();
+  await page.locator('#workbench-tab-inspect').click(); await page.locator('#validate-image').click();
   await expect(page.locator('#validation-summary')).toContainText('FAIL');
   await expect(page.locator('#safety-stop')).toHaveCount(0);
   await expect(page.locator('#status')).toContainText('Running');
@@ -102,18 +102,19 @@ test('a critical detector that fails does not terminate execution', async ({page
 
 test('Validate Image preserves a stopped debugger and exports the exact loaded image checks', async ({page}) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message));
-  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
+  await page.goto('/'); await page.locator('#browser-workbench').waitFor();
   const panel = page.frameLocator('#emulator-frame');
+  await panel.locator('#workbench-tab-inspect').click();
   await expect(panel.getByRole('button', {name: 'Validate Image', exact: true})).toBeDisabled();
   await panel.locator('#image').setInputFiles(firmware());
-  await panel.getByText('Developer debugging', {exact: true}).click();
+  await panel.locator('#workbench-tab-inspect').click(); await panel.getByText('Developer debugging', {exact: true}).click();
   await panel.locator('#debug-enabled').check();
   await panel.locator('#debug-breakpoints').fill('0x200008'); await panel.locator('#debug-apply').click();
   await panel.locator('#run').click(); await expect(panel.locator('#debug-stop')).toContainText('Breakpoint');
   await panel.locator('#debug-step').click(); await panel.locator('#run').click();
   await expect(panel.locator('#ticks')).toHaveText('2');
   const before = await page.evaluate(() => window.sq64Emulator.request('state'));
-  await panel.locator('#validate-image').click();
+  await panel.locator('#workbench-tab-inspect').click(); await panel.locator('#validate-image').click();
   await expect(panel.locator('#validation-summary')).toHaveText('PASS · 7 passed · 0 failed · 0 not run');
   await expect(panel.locator('#validation-rows tr')).toHaveCount(7);
   const after = await page.evaluate(() => window.sq64Emulator.request('state'));
@@ -124,7 +125,7 @@ test('Validate Image preserves a stopped debugger and exports the exact loaded i
   expect(report).toEqual(after.report.conformance);
   const debugReport = await downloaded(page, () => panel.locator('#debug-save').click());
   expect(debugReport.conformance).toEqual(report); expect(debugReport.debug).toEqual(before.report.debug);
-  await panel.locator('#reset').click(); await panel.locator('#validate-image').click();
+  await panel.locator('#reset').click(); await panel.locator('#workbench-tab-inspect').click(); await panel.locator('#validate-image').click();
   await expect(panel.locator('#validation-summary')).toContainText('PASS');
   expect((await page.evaluate(() => window.sq64Emulator.request('state'))).report.conformance).toEqual(report);
   await panel.locator('#run').click(); await expect(panel.locator('#debug-stop')).toContainText('Breakpoint');
@@ -135,20 +136,20 @@ test('Validate Image preserves a stopped debugger and exports the exact loaded i
 test('validation reports failures, clears replacement results and respects transaction locks', async ({page}) => {
   await page.goto('/emulator/');
   await page.locator('#image').setInputFiles(firmware(true));
-  await page.locator('#validate-image').click();
+  await page.locator('#workbench-tab-inspect').click(); await page.locator('#validate-image').click();
   await expect(page.locator('#validation-summary')).toContainText('FAIL · 6 passed · 1 failed');
   await expect(page.locator('#validation-rows tr[data-status=fail]')).toContainText('PKG-005');
   await page.locator('#image').setInputFiles(firmware());
   await expect(page.locator('#validation-results')).toBeHidden();
   await expect(page.locator('#validation-save')).toBeDisabled();
   await page.locator('#run').click(); await expect(page.locator('#status')).toContainText('Running');
-  await page.locator('#validate-image').click(); await expect(page.locator('#validation-summary')).toContainText('PASS');
+  await page.locator('#workbench-tab-inspect').click(); await page.locator('#validate-image').click(); await expect(page.locator('#validation-summary')).toContainText('PASS');
   await expect(page.locator('#status')).toContainText('Running');
   const raw = firmware(); raw.name = 'synthetic-raw.bin'; raw.buffer = raw.buffer.subarray(256, 256 + 65536);
-  await page.locator('#image').setInputFiles(raw); await page.locator('#validate-image').click();
+  await page.locator('#image').setInputFiles(raw); await page.locator('#workbench-tab-inspect').click(); await page.locator('#validate-image').click();
   await expect(page.locator('#validation-summary')).toHaveText('FAIL · 0 passed · 1 failed · 6 not run');
   await expect(page.locator('#validation-format')).toBeVisible();
-  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
+  await page.goto('/'); await page.locator('#browser-workbench').waitFor();
   const panel = page.frameLocator('#emulator-frame'); await panel.locator('#image').setInputFiles(firmware());
   await page.evaluate(() => window.sq64Emulator.setLocked(true));
   await expect(panel.locator('#validate-image')).toBeDisabled();

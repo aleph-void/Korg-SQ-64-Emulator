@@ -39,8 +39,9 @@ test('a stalled state consumer cannot queue snapshots or prevent execution and p
 });
 
 test('panel paints the latest burst once and reuses an unchanged display', async ({page}) => {
-  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
+  await page.goto('/'); await page.locator('#browser-workbench').waitFor();
   const panel = page.frameLocator('#emulator-frame');
+  await panel.getByText('Try the emulator without vendor firmware', {exact: true}).click();
   await panel.locator('#load-probe').click(); await expect(panel.locator('#status')).toContainText('Running');
   await page.evaluate(async () => {
     const device = window.sq64Emulator; window.pacingState = await device.request('pause'); device.worker.terminate();
@@ -70,8 +71,9 @@ test('panel paints the latest burst once and reuses an unchanged display', async
 });
 
 test('pad brightness transitions soften running PWM changes but paused/debug snapshots and button presses are immediate', async ({page}) => {
-  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
+  await page.goto('/'); await page.locator('#browser-workbench').waitFor();
   const panel = page.frameLocator('#emulator-frame');
+  await panel.getByText('Try the emulator without vendor firmware', {exact: true}).click();
   await panel.locator('#load-probe').click(); await expect(panel.locator('#status')).toContainText('Running');
   await page.evaluate(async () => {
     const device = window.sq64Emulator;

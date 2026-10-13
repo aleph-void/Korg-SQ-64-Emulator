@@ -11,7 +11,7 @@ const badFile = {name: 'invalid.bin', mimeType: 'application/octet-stream', buff
 for (const embedded of [true, false]) {
   test(`${embedded ? 'embedded' : 'standalone'} file selection enables Power on and keeps load failures visible`, async ({page}) => {
     await page.goto(embedded ? '/' : '/emulator/');
-    if (embedded) await page.locator('#browser-workbench[open]').waitFor();
+    if (embedded) await page.locator('#browser-workbench').waitFor();
     const panel = embedded ? page.frameLocator('#emulator-frame') : page;
     await expect(panel.locator('#reset')).toBeDisabled();
     await panel.locator('#image').setInputFiles(badFile);
@@ -45,7 +45,7 @@ for (const embedded of [true, false]) {
 }
 
 test('encoder turns cross noon in both directions and discard partial gestures on reset and lock', async ({page}) => {
-  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
+  await page.goto('/'); await page.locator('#browser-workbench').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   await panel.locator('#image').setInputFiles(firmware());
   await expect(panel.locator('[data-encoder=param1]')).toBeEnabled();
@@ -77,7 +77,7 @@ test('encoder turns cross noon in both directions and discard partial gestures o
 });
 
 test('updater keeps acknowledgements and selected files when switching Vue tabs, and clears removed files', async ({page}) => {
-  await page.goto('/'); await page.locator('#demo').click();
+  await page.goto('/?workspace=tools'); await page.locator('#demo').click();
   await page.locator('[data-tab=update]').click(); await page.locator('#ready').check();
   await page.locator('[data-tab=backup]').click(); await page.locator('[data-tab=update]').click();
   await expect(page.locator('#ready')).toBeChecked();
@@ -89,7 +89,7 @@ test('updater keeps acknowledgements and selected files when switching Vue tabs,
 });
 
 test('parameter knob out-and-back drags and wheel turns do not drift on reversal', async ({page}) => {
-  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
+  await page.goto('/'); await page.locator('#browser-workbench').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   await panel.locator('#image').setInputFiles(firmware());
   await page.evaluate(() => {
@@ -125,11 +125,11 @@ test('parameter knob out-and-back drags and wheel turns do not drift on reversal
 });
 
 test('script playback locks the panel and explains attempted knob and pad input', async ({page}) => {
-  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
+  await page.goto('/'); await page.locator('#browser-workbench').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   await panel.locator('#image').setInputFiles(firmware());
   await expect(panel.locator('[data-encoder=param1]')).toBeEnabled();
-  await panel.locator('#ui-scripts summary').click();
+  await panel.locator('#workbench-tab-scripts').click();
   await panel.locator('#script-actions').fill('[{"type":"power-on","mode":"normal"},{"type":"wait","ms":60000}]');
   await panel.locator('#script-run').click();
   await expect(panel.locator('[data-encoder=param1]')).toBeDisabled();

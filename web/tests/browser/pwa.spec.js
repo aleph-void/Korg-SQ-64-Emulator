@@ -33,6 +33,7 @@ test('service worker precaches the site and serves it offline', async ({page, co
   expect(state.cached).toBeGreaterThan(30);
   await context.setOffline(true);
   await page.goto('/emulator/');
+  await page.getByText('Try the emulator without vendor firmware', {exact: true}).click();
   await page.locator('#load-probe').click();
   await expect(page.locator('#status')).toContainText('Running');
   await context.setOffline(false);

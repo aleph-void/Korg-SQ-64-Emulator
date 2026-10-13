@@ -9,9 +9,9 @@ const firmware = () => {
 
 test('optional debugger stops, steps, inspects, exports and resets without MIDI resuming it', async ({page}) => {
   const errors = []; page.on('pageerror', e => errors.push(e.message));
-  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
+  await page.goto('/'); await page.locator('#browser-workbench').waitFor();
   const panel = page.frameLocator('#emulator-frame');
-  await panel.getByText('Developer debugging', {exact: true}).click();
+  await panel.locator('#workbench-tab-inspect').click(); await panel.getByText('Developer debugging', {exact: true}).click();
   await expect(panel.locator('#debug-enabled')).toBeDisabled();
   await panel.locator('#image').setInputFiles(firmware());
   await expect(panel.locator('#debug-enabled')).toBeEnabled();
@@ -55,10 +55,10 @@ test('optional debugger stops, steps, inspects, exports and resets without MIDI 
 });
 
 test('debug controls reject invalid input, respect transaction locks and clear on image replacement', async ({page}) => {
-  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
+  await page.goto('/'); await page.locator('#browser-workbench').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   await panel.locator('#image').setInputFiles(firmware());
-  await panel.getByText('Developer debugging', {exact: true}).click();
+  await panel.locator('#workbench-tab-inspect').click(); await panel.getByText('Developer debugging', {exact: true}).click();
   await panel.locator('#debug-enabled').check();
   await panel.locator('#debug-breakpoints').fill('invalid'); await panel.locator('#debug-apply').click();
   await expect(panel.locator('#debug-message')).toContainText('32-bit address');

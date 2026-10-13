@@ -37,22 +37,25 @@ test('loads listed community firmware and imports its UI scripts on demand', asy
   const requests = [];
   await serveRegistry(page, {requests});
   await page.goto('/');
-  await page.locator('#browser-workbench[open]').waitFor();
+  await page.locator('#browser-workbench').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   expect(requests).toEqual([]);
   await panel.locator('#repo-browse').click();
   await expect(panel.locator('#repo-status')).toContainText('1 validated firmware image available');
   await expect(panel.locator('#repo-list')).toHaveValue('synthetic');
   await expect(panel.getByText('Non-executable synthetic registry firmware for tests.')).toBeVisible();
+  await panel.locator('#workbench-tab-firmware').click();
   await panel.locator('#repo-load').click();
   await expect(panel.locator('#image-status')).toContainText('Loaded: Synthetic Demo · firmware repository');
   await expect(panel.locator('#repo-status')).toContainText('imported 1 UI script');
   expect(requests).toEqual(['index.json', 'firmware/synthetic/synthetic.vsb', 'firmware/synthetic/scripts/groove.json']);
-  await panel.locator('#ui-scripts summary').click();
+  await panel.locator('#workbench-tab-scripts').click();
   await expect(panel.locator('#script-library option', {hasText: 'Synthetic demo groove'})).toHaveCount(1);
   // Re-loading updates the stored copy instead of duplicating it.
+  await panel.locator('#workbench-tab-firmware').click();
   await panel.locator('#repo-load').click();
   await expect(panel.locator('#repo-status')).toContainText('imported 1 UI script');
+  await panel.locator('#workbench-tab-scripts').click();
   await panel.locator('#script-refresh').click();
   await expect(panel.locator('#script-library option', {hasText: 'Synthetic demo groove'})).toHaveCount(1);
 });
@@ -67,9 +70,10 @@ test('rejects registry firmware whose bytes do not match the manifest', async ({
     route.request().url().endsWith('index.json') ? {body: index, contentType: 'application/json'}
       : {body: Buffer.from(image), contentType: 'application/octet-stream'}));
   await page.goto('/');
-  await page.locator('#browser-workbench[open]').waitFor();
+  await page.locator('#browser-workbench').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   await panel.locator('#repo-browse').click();
+  await panel.locator('#workbench-tab-firmware').click();
   await panel.locator('#repo-load').click();
   await expect(panel.locator('#repo-status')).toContainText('does not match the SHA-256');
   await expect(panel.locator('#image-status')).toContainText('does not match the SHA-256');

@@ -9,12 +9,12 @@ function firmware(unsafe = true) {
   return {name:'synthetic-critical.vsb',mimeType:'application/octet-stream',buffer:Buffer.from(bytes)};
 }
 for (const action of ['run','step','debug-step','reset']) test(`critical pass terminates worker during ${action} and requires a new session`, async ({page}) => {
-  await page.goto('/');await page.locator('#browser-workbench[open]').waitFor();
+  await page.goto('/');await page.locator('#browser-workbench').waitFor();
   const panel=page.frameLocator('#emulator-frame');await panel.locator('#image').setInputFiles(firmware());
-  await panel.locator('#validate-image').click();await expect(panel.locator('#validation-summary')).toContainText('PASS');
+  await panel.locator('#workbench-tab-inspect').click(); await panel.locator('#validate-image').click();await expect(panel.locator('#validation-summary')).toContainText('PASS');
   expect(await page.evaluate(()=>window.sq64Emulator.terminated || false)).toBe(false);
   const loadedHash=(await page.evaluate(()=>window.sq64Emulator.request('state'))).report.imageSha256;
-  if(action==='debug-step') { await panel.getByText('Developer debugging',{exact:true}).click();await panel.locator('#debug-enabled').check();await panel.locator('#debug-step').click();await panel.locator('#debug-step').click(); }
+  if(action==='debug-step') { await panel.locator('#workbench-tab-inspect').click(); await panel.getByText('Developer debugging',{exact:true}).click();await panel.locator('#debug-enabled').check();await panel.locator('#debug-step').click();await panel.locator('#debug-step').click(); }
   await panel.locator('#'+action).click();
   await expect(panel.locator('#safety-stop')).toContainText('Your custom firmware probably will brick your device. Do not flash it.');
   await expect(panel.locator('#run')).toBeDisabled();await expect(panel.locator('#reset')).toBeDisabled();
@@ -26,13 +26,13 @@ for (const action of ['run','step','debug-step','reset']) test(`critical pass te
   const pending=page.waitForEvent('download');await panel.locator('#report').click();const stream=await(await pending).createReadStream(),chunks=[];for await(const chunk of stream)chunks.push(chunk);
   expect(JSON.parse(Buffer.concat(chunks).toString()).critical).toEqual(state.report.critical);
   await expect(panel.locator('#image')).toBeDisabled();
-  await page.reload();await page.locator('#browser-workbench[open]').waitFor();
+  await page.reload();await page.locator('#browser-workbench').waitFor();
   await panel.locator('#image').setInputFiles(firmware(false));await expect(panel.locator('#safety-stop')).toHaveCount(0);await expect(panel.locator('#run')).toBeEnabled();
-  await panel.locator('#step').click();expect((await page.evaluate(()=>window.sq64Emulator.request('state'))).report.critical.terminated).toBe(false);
+  await panel.locator('#workbench-tab-inspect').click(); await panel.locator('#step').click();expect((await page.evaluate(()=>window.sq64Emulator.request('state'))).report.critical.terminated).toBe(false);
 });
 
 test('installation context requires Update mode and is discarded by reset', async ({page}) => {
-  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
+  await page.goto('/'); await page.locator('#browser-workbench').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   await panel.locator('#image').setInputFiles(firmware(false));
   await expect(panel.locator('#run')).toBeEnabled();

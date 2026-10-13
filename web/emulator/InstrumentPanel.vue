@@ -169,31 +169,35 @@ onBeforeUnmount(() => {
         />
       </div>
     </div>
-    <div class="instrument-controls">
-      <div v-for="(controls, id) in groups" :id="id" :key="id" class="button-row">
+    <div class="sequencer-scroll" tabindex="0" role="group" aria-label="Sequencer buttons and 16-step grid">
+      <div class="instrument-controls">
+        <div v-for="(controls, id) in groups" :id="id" :key="id" class="button-row">
+          <PanelButton
+            v-for="control in controls"
+            :key="control"
+            v-bind="buttonProps(control)"
+            :label="control.toUpperCase()"
+            @input="emit('input', $event)"
+          />
+        </div>
+      </div>
+      <div id="matrix" class="matrix">
         <PanelButton
-          v-for="control in controls"
-          :key="control"
-          v-bind="buttonProps(control)"
-          :label="control.toUpperCase()"
+          v-for="button in matrix"
+          :key="button.control"
+          v-bind="{ ...buttonProps(button.control), ...button }"
           @input="emit('input', $event)"
         />
       </div>
     </div>
-    <div id="matrix" class="matrix">
-      <PanelButton
-        v-for="button in matrix"
-        :key="button.control"
-        v-bind="{ ...buttonProps(button.control), ...button }"
-        @input="emit('input', $event)"
-      />
-    </div>
     <div class="panel-foot">
-      <span>Double-click any pad or button to hold or release it; pressing Enter/Space twice also works. Other than SHIFT, single clicks and pointer/keyboard holds work as usual; Shift-click also latches them.</span>
-      <span id="encoder-help"
-        >Relative encoders: drag vertically, scroll, or use ← / →. Shift gives finer drag/scroll. The firmware display
-        shows the value; the knob angle has no zero or reset position.</span
-      >
+      <details class="panel-help">
+        <summary>How to use the controls</summary>
+        <p>Double-click any pad or button to hold or release it; pressing Enter/Space twice also works. Other than SHIFT, single clicks and pointer/keyboard holds work as usual; Shift-click also latches them.</p>
+        <p id="encoder-help">Relative encoders: drag vertically, scroll, or use ← / →. Shift gives finer drag/scroll.
+          Read values on the firmware display; the knob angle has no zero or reset position.</p>
+      </details>
+      <span class="panel-scroll-hint">Scroll sideways to reach all 16 steps</span>
       <button
         id="fullscreen"
         class="foot-button"

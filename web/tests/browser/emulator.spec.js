@@ -5,10 +5,12 @@ test('independently authored ARM probe backs up and stages an update without Web
   test.setTimeout(90000);
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(() => { navigator.requestMIDIAccess = () => { throw Error('Web MIDI must not be requested for the emulator'); }; });
-  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
+  await page.goto('/'); await page.locator('#browser-workbench').waitFor();
   const panel = page.frameLocator('#emulator-frame');
-  await panel.getByRole('button', {name: 'Load original integration probe'}).click();
+  await panel.getByText('Try the emulator without vendor firmware', {exact: true}).click();
+  await panel.locator('#load-probe').click();
   await expect(panel.locator('#status')).toContainText('Running');
+  await page.locator('#workspace-tab-tools').click();
   await page.locator('#emulated').click();
   await expect(page.locator('#connection-state')).toHaveText('Browser emulator connected');
   await page.locator('#scope').selectOption('current');
@@ -17,7 +19,9 @@ test('independently authored ARM probe backs up and stages an update without Web
   await page.getByRole('button', {name: 'Restore', exact: true}).click();
   await page.locator('#backup-file').setInputFiles(file); await page.locator('#restore-ready').check(); await page.locator('#restore-start').click();
   await expect(page.locator('#status')).toHaveText('Restore acknowledged by device');
+  await page.locator('#workspace-tab-emulator').click();
   await panel.locator('#update').click();
+  await page.locator('#workspace-tab-tools').click();
   await page.getByRole('button', {name: 'Update firmware'}).click();
   const data = syntheticVsb();
   await page.locator('#firmware').setInputFiles({name: 'synthetic-never-flash.vsb', mimeType: 'application/octet-stream', buffer: Buffer.from(data)});
@@ -30,8 +34,9 @@ test('independently authored ARM probe backs up and stages an update without Web
 });
 
 test('control surface records inputs and requests startup chords (UI state only)', async ({page}) => {
-  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
+  await page.goto('/'); await page.locator('#browser-workbench').waitFor();
   const panel = page.frameLocator('#emulator-frame');
+  await panel.getByText('Try the emulator without vendor firmware', {exact: true}).click();
   await panel.locator('#load-probe').click(); await expect(panel.locator('#status')).toContainText('Running');
   await panel.locator('#version').click();
   await expect(panel.locator('[data-control=global]')).toHaveAttribute('aria-pressed', 'true');
@@ -48,8 +53,9 @@ test('control surface records inputs and requests startup chords (UI state only)
 });
 
 test('firmware LED brightness is visible on named controls and distinguishes dim pads', async ({page}) => {
-  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
+  await page.goto('/'); await page.locator('#browser-workbench').waitFor();
   const panel = page.frameLocator('#emulator-frame');
+  await panel.getByText('Try the emulator without vendor firmware', {exact: true}).click();
   await panel.locator('#load-probe').click();
   await expect(panel.locator('#status')).toContainText('Running');
   await page.evaluate(async () => {
@@ -68,10 +74,11 @@ test('firmware LED brightness is visible on named controls and distinguishes dim
 });
 
 test('top-edge output lights show independent levels and clear on shutdown and reload', async ({page}) => {
-  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
+  await page.goto('/'); await page.locator('#browser-workbench').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   await expect(panel.locator('[data-output]')).toHaveCount(17);
   await expect(panel.locator('[data-output].lit')).toHaveCount(0);
+  await panel.getByText('Try the emulator without vendor firmware', {exact: true}).click();
   await panel.locator('#load-probe').click(); await expect(panel.locator('#status')).toContainText('Running');
   await page.evaluate(async () => {
     const device = window.sq64Emulator; await device.request('pause');
@@ -92,8 +99,9 @@ test('top-edge output lights show independent levels and clear on shutdown and r
 });
 
 test('parameter knobs normalize trackpad movement, support fine adjustment and release drags', async ({page}) => {
-  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
+  await page.goto('/'); await page.locator('#browser-workbench').waitFor();
   const panel = page.frameLocator('#emulator-frame');
+  await panel.getByText('Try the emulator without vendor firmware', {exact: true}).click();
   await panel.locator('#load-probe').click(); await expect(panel.locator('#status')).toContainText('Running');
   await page.evaluate(async () => {
     const device = window.sq64Emulator; await device.request('pause'); device.worker.terminate();
@@ -121,7 +129,7 @@ test('power button lets ARM firmware release power, disconnects MIDI, and restar
   bytes.set([0x06,0x48,0x80,0x21,0x01,0x60,0x06,0x4a,0x42,0xf2,0,3,
     0x11,0x68,0x19,0x42,0xfc,0xd1,0x4f,0xf4,0,1,1,0x60,0xfe,0xe7,0,0,
     0x18,4,2,0x40,0x10,8,2,0x40], 8);
-  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
+  await page.goto('/'); await page.locator('#browser-workbench').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   await panel.locator('#image').setInputFiles({name:'original-power-probe.bin',mimeType:'application/octet-stream',buffer:bytes});
   await expect(panel.locator('#run')).toBeEnabled(); await panel.locator('#run').click();
@@ -142,13 +150,14 @@ test('restore firmware discards emulated flash and returns to the freshly loaded
     0x02,0x60,0x02,0x24,0x0c,0x70,0x04,0x24,0x0c,0x70,0x00,0x24,0x0c,0x70,0x0c,0x70,
     0x0c,0x70,0x03,0x60,0xfe,0xe7,0,0,
     0x18,0x04,0x02,0x40,0x0c,0x38,0x00,0x40,0x00,0x00,0x00,0x02,0x00,0x02,0x00,0x00], 8);
-  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
+  await page.goto('/'); await page.locator('#browser-workbench').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   await expect(panel.locator('#restore-firmware')).toBeDisabled();
   await panel.locator('#image').setInputFiles({name: 'original-spi-write-probe.bin', mimeType: 'application/octet-stream', buffer: bytes});
   await expect(panel.locator('#run')).toBeEnabled(); await panel.locator('#run').click();
   await expect(panel.locator('#status')).toContainText('Running');
   await expect.poll(() => page.evaluate(async () => (await window.sq64Emulator.request('storage')).spi[0x40000])).toBe(0);
+  await panel.getByText('Restore the original image', {exact: true}).click();
   await panel.locator('#restore-firmware').click();
   await expect(panel.locator('#status')).toHaveText('Firmware loaded · press Power on to start');
   expect(await page.evaluate(async () => (await window.sq64Emulator.request('storage')).spi[0x40000])).toBe(255);
@@ -157,9 +166,10 @@ test('restore firmware discards emulated flash and returns to the freshly loaded
 });
 
 test('update panel links the official firmware ZIP without any in-app download', async ({page}) => {
-  await page.goto('/'); await page.locator('#browser-workbench[open]').waitFor();
+  await page.goto('/'); await page.locator('#browser-workbench').waitFor();
   const panel = page.frameLocator('#emulator-frame');
   await expect(panel.locator('#boot-official')).toHaveCount(0);
+  await page.locator('#workspace-tab-tools').click();
   await page.getByRole('button', {name: 'Update firmware', exact: true}).click();
   await expect(page.locator('#official-firmware-zip')).toBeVisible();
   await expect(page.locator('#official-firmware-zip')).toHaveAttribute('href', 'https://cdn.korg.com/jp/support/download/files/765e1fc1c8b5e0fe446fefb7199dd6bf.zip');
