@@ -178,6 +178,17 @@ async function connectEmulator() {
     workbench.value.scrollIntoView({ behavior: 'smooth' });
     return;
   }
+  // Over the emulated USB transport, MIDI only flows once the device finishes
+  // enumeration, which trails firmware boot by about 30 seconds. Connecting
+  // earlier would let the first request burn the whole session timeout.
+  if (emulator.state?.transport === 'usb' && emulator.state?.report?.board?.usb?.phase !== 'configured') {
+    status.value = 'Emulator USB MIDI is still starting (up to about 30 seconds after boot). Connect again once it finishes.';
+    return;
+  }
+  if (emulator.input.state !== 'connected') {
+    status.value = 'The emulator is powered off or stopped. Reset it in the Browser emulator tab, then connect.';
+    return;
+  }
   closeSession();
   emulatorSelected = true;
   selectSession(new MidiSession(emulator.input, emulator.output, { timeout: 30000, updateContext: emulatorUpdateContext(emulator) }));

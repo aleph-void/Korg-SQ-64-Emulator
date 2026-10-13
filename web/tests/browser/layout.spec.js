@@ -13,6 +13,9 @@ test('workspace switching keeps the emulator running and preserves transfer sett
   const panel = page.frameLocator('#emulator-frame');
   await expect(page.locator('#workspace-tab-emulator')).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#device-tools')).toBeHidden();
+  // The counter probe never configures USB; route it over DIN so the
+  // Device tools connection is not refused as "USB still starting".
+  await panel.locator('#midi-route').selectOption('din');
   await panel.locator('#image').setInputFiles(firmware());
   await panel.locator('#reset').click();
   await expect(panel.locator('#status')).toContainText('Running');
