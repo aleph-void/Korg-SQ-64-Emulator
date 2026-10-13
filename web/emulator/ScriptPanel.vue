@@ -1,12 +1,13 @@
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue';
 import { ENCODERS } from './panel.js';
 import { SCRIPT_FORMAT, SCRIPT_CONTROLS, MAX_SCRIPT_BYTES, parseScript, validateScript } from './scripts.js';
 import { listScripts, saveScript, deleteScript } from './script-store.js';
 import { save } from '../src/download.js';
 import { SCRIPT_EXAMPLES } from './script-examples.js';
 
-const props = defineProps({ state: { type: Object, required: true }, play: { type: Function, required: true }, loading: Boolean });
+const props = defineProps({ state: { type: Object, required: true }, play: { type: Function, required: true }, loading: Boolean,
+  autoRun: { type: Object, default: null }, linkFirmware: { type: String, default: '' }, linkBase: { type: String, default: '' } });
 const name = ref('My UI script'), actions = ref('[]'), selected = ref(''), library = shallowRef([]);
 const message = ref(''), storageMessage = ref(''), busy = ref(false), playing = ref(false), progress = ref(0);
 const actionType = ref('press'), control = ref('play'), encoder = ref('tempo'), mode = ref('normal');
@@ -131,6 +132,37 @@ async function run() {
   } finally { playing.value = false; controller = undefined; }
 }
 function stop() { controller?.abort(new DOMException('Script stopped', 'AbortError')); }
+// A link can name only firmware the deep-link loader can fetch itself — a
+// repository image or the bundled probe — and a saved script, looked up by its
+// saved name. Local firmware files and unsaved drafts have nothing to link to.
+const linkDisabled = computed(() => !props.linkFirmware || !selected.value);
+async function copyLink() {
+  const record = library.value.find(item => item.id === selected.value);
+  if (linkDisabled.value || !record) { message.value = 'Save the script in this browser before creating a link'; return; }
+  const url = new URL(props.linkBase);
+  url.search = '';
+  url.hash = '';
+  url.searchParams.set('firmware', props.linkFirmware);
+  url.searchParams.set('script', record.script.name);
+  const scope = record.id.startsWith(`registry:${props.linkFirmware}:`)
+    ? 'It loads the firmware and runs its published script.'
+    : 'Saved scripts stay in this browser, so the link runs the script only here.';
+  try {
+    await navigator.clipboard.writeText(url.href);
+    message.value = `Link copied. ${scope}`;
+  } catch {
+    message.value = `Copy the link manually: ${url.href}`;
+  }
+}
+// A deep link hands over a saved script record once its firmware has loaded;
+// open it in the editor and start it through the ordinary run path.
+watch(() => props.autoRun, record => {
+  if (!record) return;
+  try { open(record.script, record.id); }
+  catch (failure) { message.value = failure.message; return; }
+  if (runDisabled.value) { message.value = `Opened ${record.script.name} from the link. Choose Run script when the emulator is ready.`; return; }
+  run();
+});
 onMounted(() => {
   refresh();
   // The firmware repository list imports a loaded image's published UI scripts.
@@ -202,12 +234,16 @@ onBeforeUnmount(() => {
         <button id="script-run" :disabled="runDisabled" @click="run">Run script</button>
         <button id="script-stop" :disabled="!playing" @click="stop">Stop script</button>
         <button id="script-export" :disabled="editingDisabled" @click="exportScript">Export script</button>
+        <button id="script-link" :disabled="linkDisabled"
+          title="Copy a link that loads the current repository firmware or probe and runs the selected saved script"
+          @click="copyLink">Create link</button>
       </div>
       <label>Import script<input id="script-import" type="file" accept=".json,application/json" :disabled="editingDisabled" @change="importScript" /></label>
     </div>
     <progress aria-label="Script progress" max="100" :value="progress"></progress>
     <p id="script-status" role="status">{{ message || 'Ready to create or import a script' }}</p>
     <p class="hint">Scripts are stored in IndexedDB for this browser and site. Export a copy to move them elsewhere.
+      Create link copies a URL that loads the current repository firmware or probe and runs the selected saved script on open.
       Load firmware before playback and disable debugging. Add a startup wait for your firmware; first boot can take a minute or more.
       Power on resets immediately. Power off waits for firmware shutdown. Stop cancels remaining actions; held controls stay held,
       except an interrupted timed press is released. Send update firmware uses the separate update VSB selection above;

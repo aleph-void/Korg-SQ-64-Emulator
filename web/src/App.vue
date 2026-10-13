@@ -6,12 +6,15 @@ import { createBackup, validateBackup, restoreBackup } from './backup.js';
 import { DemoSession } from './demo.js';
 import { BrowserEmulator } from '../emulator/client.js';
 import { emulatorUpdateContext } from '../emulator/firmware-update.js';
+import { forwardedBootQuery } from '../emulator/boot-params.js';
 import { save } from './download.js';
 import WorkspaceTabs from './WorkspaceTabs.vue';
 
 const version = __APP_VERSION__;
 const workspace = ref(new URLSearchParams(window.location.search).get('workspace') === 'tools' ? 'tools' : 'emulator');
 const workspaceTabs = [ { id: 'emulator', label: 'Browser emulator' }, { id: 'tools', label: 'Device tools' } ];
+// Deep-link parameters are handled by the workbench page itself; pass them on.
+const emulatorSrc = 'emulator/index.html' + forwardedBootQuery(window.location.search);
 const emulator = new BrowserEmulator();
 const safetyStop = shallowRef(null);
 window.sq64Emulator = emulator;
@@ -482,9 +485,9 @@ onBeforeUnmount(() => {
         <iframe
           id="emulator-frame"
           title="SQ-64 browser firmware emulator"
-          allow="fullscreen"
+          allow="fullscreen; clipboard-write"
           allowfullscreen
-          src="emulator/index.html"
+          :src="emulatorSrc"
         ></iframe>
       </div>
     </section>

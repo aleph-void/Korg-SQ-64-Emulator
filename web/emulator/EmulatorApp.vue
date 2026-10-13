@@ -12,8 +12,15 @@ import { runScript } from './scripts.js';
 import { submitFirmware } from './firmware-update.js';
 import { IMAGE_SIZE, parseVsb, sha256 } from '../src/protocol.js';
 import { REGISTRY_URL, fetchRegistry, fetchFirmware, importEntryScripts } from './registry.js';
+import { PROBE_FIRMWARE, parseBootParams } from './boot-params.js';
+import { listScripts } from './script-store.js';
 
-const activeTool = ref('firmware');
+const boot = parseBootParams(window.location.search);
+const activeTool = ref(boot.tool || 'firmware');
+const autoScript = shallowRef(null);
+// The deep-link firmware id of the loaded image ('' for a local file), and the
+// page a created link should point at: the top-level app when embedded.
+const linkFirmware = ref('');
 const toolTabs = computed(() => [
   { id: 'firmware', label: 'Firmware', active: state.value.updating },
   { id: 'scripts', label: 'UI scripts', active: state.value.scripting },
@@ -21,6 +28,7 @@ const toolTabs = computed(() => [
   { id: 'inspect', label: 'Inspect', active: state.value.report?.debug?.enabled },
 ]);
 const sharedDevice = window.parent !== window && window.parent.sq64Emulator;
+const linkBase = (sharedDevice ? window.parent.location : window.location).href;
 const device = sharedDevice || new BrowserEmulator();
 const state = shallowRef(device.state || { loaded: false, running: false });
 const panelState = shallowRef(state.value),
@@ -180,6 +188,7 @@ async function loadFile(event) {
     if (file.size > 4 * 1024 * 1024) throw Error('Image exceeds 4 MiB');
     await load(await file.arrayBuffer());
     imageName.value = file.name;
+    linkFirmware.value = '';
   } catch (failure) {
     error.value = loadError.value = failure.message;
     // Allow retrying a rejected file without clearing a successful selection.
@@ -199,6 +208,7 @@ async function loadProbe() {
     if (!response.ok) throw Error('Integration probe is unavailable');
     await load(await response.arrayBuffer());
     imageName.value = 'Original integration probe';
+    linkFirmware.value = PROBE_FIRMWARE;
     await api('run');
   } catch (failure) {
     error.value = loadError.value = failure.message;
@@ -233,6 +243,7 @@ async function loadRepositoryFirmware() {
     const image = await fetchFirmware(entry);
     await load(image);
     imageName.value = `${entry.name} · firmware repository`;
+    linkFirmware.value = entry.id;
     repoMessage.value = `Loaded ${entry.name}. Press Power on to start.`;
   } catch (failure) {
     error.value = loadError.value = failure.message;
@@ -278,6 +289,42 @@ function replay(event) {
   const file = event.target.files[0];
   if (file) return act(async () => api('replay', JSON.parse(await file.text())));
 }
+// A shared link can preselect a tool tab, load firmware, and run a saved
+// script. Firmware comes only from the validated repository or the bundled
+// integration probe; the script runs through the UI scripts panel so its
+// progress and Stop control behave exactly like a manual run.
+async function bootFromLink() {
+  if (boot.errors.length) {
+    error.value = boot.errors.join(' · ');
+    return;
+  }
+  if (!boot.firmware) return;
+  if (boot.firmware === PROBE_FIRMWARE) {
+    await loadProbe();
+  } else {
+    await browseRepository();
+    if (!repoEntries.value) {
+      error.value = repoMessage.value;
+      return;
+    }
+    if (!repoEntries.value.some((entry) => entry.id === boot.firmware)) {
+      error.value = repoMessage.value = `The firmware repository lists no image with id “${boot.firmware}”`;
+      return;
+    }
+    repoSelected.value = boot.firmware;
+    await loadRepositoryFirmware();
+  }
+  if (!boot.script || !state.value.loaded || loadError.value) return;
+  try {
+    const name = boot.script.toLowerCase();
+    const record = (await listScripts()).find((item) => item.script.name.toLowerCase() === name);
+    if (!record) throw Error(`No saved UI script is named “${boot.script}”`);
+    activeTool.value = 'scripts';
+    autoScript.value = record;
+  } catch (failure) {
+    error.value = `The link's script could not start: ${failure.message}`;
+  }
+}
 function stateChanged(event) {
   update(event.detail);
 }
@@ -288,6 +335,7 @@ function fault(event) {
 device.addEventListener('state', stateChanged);
 device.addEventListener('fault', fault);
 onMounted(() => {
+  bootFromLink();
   if (sharedDevice) {
     observer = new ResizeObserver(() => {
       const height = Math.ceil(document.body.getBoundingClientRect().height);
@@ -448,7 +496,8 @@ onBeforeUnmount(() => {
         </details>
       </section>
       <section id="workbench-scripts" role="tabpanel" aria-labelledby="workbench-tab-scripts" :hidden="activeTool !== 'scripts'" tabindex="0">
-        <ScriptPanel :state="state" :loading="loading || updateLoading" :play="playScript" />
+        <ScriptPanel :state="state" :loading="loading || updateLoading" :play="playScript" :auto-run="autoScript"
+          :link-firmware="linkFirmware" :link-base="linkBase" />
       </section>
       <section id="workbench-midi" role="tabpanel" aria-labelledby="workbench-tab-midi" :hidden="activeTool !== 'midi'" tabindex="0">
         <div class="tool-heading"><h2>MIDI monitor</h2><p>Send messages to the running firmware and inspect its output.</p></div>

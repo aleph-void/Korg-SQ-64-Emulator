@@ -37,7 +37,8 @@ function entryValid(entry) {
       text(script.name, 120) && path(script.file) && HASH.test(script.sha256 || ''));
 }
 
-// Fetched only on an explicit user action; nothing loads the registry at startup.
+// Fetched only on an explicit user action — the repository button or a
+// ?firmware= deep link. A plain page load never contacts the registry.
 export async function fetchRegistry(options = {}) {
   const base = options.url || REGISTRY_URL;
   let index;

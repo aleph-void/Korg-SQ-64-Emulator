@@ -26,6 +26,30 @@ The main page opens in **Browser emulator**. Load firmware from the session bar,
 
 `/?workspace=tools` opens directly to Device tools. `/emulator/` provides the standalone emulator with the same layout.
 
+## Deep links
+
+Query string parameters create shareable links that set up the workbench on load. They work on
+the main page (which forwards them into the embedded workbench) and on `/emulator/`:
+
+- `firmware=<id>` loads that image from the firmware repository — downloaded, verified, and its
+  shipped UI scripts imported, exactly as if selected by hand. The special id `probe` loads and
+  starts the bundled integration probe instead, without contacting the repository.
+- `script=<name>` runs the saved UI script with that name (case-insensitive) once the linked
+  firmware has loaded. Repository firmware imports its shipped scripts first, so a link can name
+  one of those. The script opens and runs in the UI scripts tab with its usual progress and
+  **Stop script** control. Requires `firmware=`.
+- `tool=firmware|scripts|midi|inspect` opens that workbench tool tab.
+
+For example, `/?firmware=euclid&script=Demo%20groove` loads the repository's `euclid` image and
+plays its *Demo groove* script. **Create link** in the UI scripts tab builds such a link and
+copies it to the clipboard; it enables once repository firmware or the probe is loaded and a
+saved script is selected. Links naming a repository-published script work anywhere; links naming
+a personally saved script only work in the browser that stores it. Parameters only select among the fixed repository, the bundled
+probe, validated saved scripts, and the tool tabs; a link can never name an outside URL to fetch
+or carry script content, and a page load without these parameters stays entirely local. Broken
+values are reported in the status line instead of being guessed at. Reloading a deep link repeats
+its actions.
+
 ## Emulator shutdown and saved data
 
 Use **Power off** and wait for **Powered off** before restarting after a restore. Firmware saves the current workspace and project catalog during this shutdown. **Power on** (labeled **Restart** while running), **Version mode** and **Update mode** reset immediately. **Restore firmware** returns the device to its default state: it discards the emulated flash — saved projects, settings and staged updates — and rebuilds the originally loaded image as if it had just been loaded, stopped until the next Power on. Closing or reloading the page discards the session, including its emulated flash; retain a downloaded backup outside the browser.
@@ -51,8 +75,8 @@ Progress ends when all packets are acknowledged, not when installation is proven
 [firmware registry pipeline](https://github.com/aleph-void/Korg-SQ-64-Custom-Firmware-Repo),
 which builds each listed image from a pinned public commit and publishes it only after the
 conformance image profile, a headless emulator execution with critical detectors armed, and UI
-script validation all pass. Nothing is fetched until the button is selected; the initial page
-load stays entirely local. Selecting an entry shows its description with links to the pinned
+script validation all pass. Nothing is fetched until the button is selected or a `firmware=`
+deep link asks for a repository image; a plain page load stays entirely local. Selecting an entry shows its description with links to the pinned
 source and its validation report, and **Load selected firmware** downloads the image, verifies
 its size and SHA-256 against the manifest, and loads it exactly like a local file — press
 **Power on** to start it. The emulator's critical flash-safety monitoring applies unchanged,
