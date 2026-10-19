@@ -32,7 +32,7 @@ test('critical SPI pass precedes erase, program and unknown commands; staging re
     assert.equal(critical.report().terminated, true);
   }
   const critical = new CriticalMonitor('b'.repeat(64)), flash = new SpiFlash(undefined, critical);
-  flash.enabled = true; flash.select(true); [2,4,0,0,42].forEach(b => flash.exchange(b)); assert.equal(flash.data[0x40000],42); assert.equal(critical.report().terminated,false);
+  flash.enabled = true; flash.select(true); [2,4,0,0,42].forEach(b => flash.exchange(b)); flash.select(false); flash.advance(1024); assert.equal(flash.data[0x40000],42); assert.equal(critical.report().terminated,false);
 });
 test('DMA checks include incremented spans, alternate buffers and configuration writes', () => {
   for (const [control, target] of [[1,0x8000000],[1|1024,0x1fffffff],[1|0x40000,0x20000100]]) {

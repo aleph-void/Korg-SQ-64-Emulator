@@ -24,6 +24,9 @@ static void stage(const uint8_t *data, unsigned count, unsigned address) {
     select(1); spi(2); spi((address + at) >> 16); spi((address + at) >> 8); spi(address + at);
     for (unsigned i = 0; i < 256 && at + i < count; i++) spi(data[at + i]);
     select(0);
+    /* Wait for actual NOR completion before starting another page or ACKing. */
+    uint8_t busy;
+    do { select(1); spi(5); busy = spi(0); select(0); } while (busy & 1);
   }
 }
 static void dump(uint8_t command, unsigned count, const char *tag, int indexed, uint8_t index) {

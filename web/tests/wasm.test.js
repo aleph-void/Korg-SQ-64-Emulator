@@ -66,8 +66,8 @@ test('the last conditional RAM access leaves no stale IT state at a budget bound
   }
 });
 test('SPI protects writes and implements NOR bit clearing', () => {
-  const flash = new SpiFlash(); const tx = bytes => { flash.select(true); try { return bytes.map(b => flash.exchange(b)); } finally { flash.select(false); } };
-  assert.throws(() => tx([2, 0, 0, 0, 42]), /enable/); tx([6]); tx([2, 0, 0, 0, 42]); tx([6]); tx([2, 0, 0, 0, 255]); assert.equal(flash.data[0], 42);
+  const flash = new SpiFlash(); const tx = bytes => { flash.select(true); try { return bytes.map(b => flash.exchange(b)); } finally { flash.select(false); flash.advance(flash.now + 262144); } };
+  tx([2, 0, 0, 0, 42]); assert.equal(flash.data[0], 255); tx([6]); tx([2, 0, 0, 0, 42]); tx([6]); tx([2, 0, 0, 0, 255]); assert.equal(flash.data[0], 42);
 });
 test('updater and backup execute an independently authored ARM probe and verify staging contents', async () => {
   let reply;
@@ -84,7 +84,7 @@ test('updater and backup execute an independently authored ARM probe and verify 
 });
 
 test('NOR storage retains the last project slot without aliasing the first MiB', () => {
-  const flash=new SpiFlash(),tx=data=>{flash.select(true);try{return data.map(b=>flash.exchange(b));}finally{flash.select(false);}};
+  const flash=new SpiFlash(),tx=data=>{flash.select(true);try{return data.map(b=>flash.exchange(b));}finally{flash.select(false);flash.advance(flash.now+262144);}};
   assert.equal(flash.data.length,16*1024*1024);assert.deepEqual(tx([159,0,0,0]).slice(1),[239,64,24]);
   tx([6]);tx([2,255,255,255,42]);assert.equal(tx([3,255,255,255,0])[4],42);assert.equal(flash.data[0xfffff],255);
   tx([6]);tx([32,255,240,0]);assert.equal(flash.data[0xffffff],255);

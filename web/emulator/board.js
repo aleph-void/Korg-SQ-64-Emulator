@@ -6,9 +6,9 @@ import {outputLevels} from './outputs.js';
 export const TIMERS = new Map([[0x40000000, 28], [0x40000400, 29], [0x40000800, 30], [0x40000c00, 50], [0x40001000, 54], [0x40001400, 55], [0x40011400, 24]]);
 const KNOWN_WINDOWS = [...TIMERS.keys()].map(a => [a, 0x80]).concat([[0x40003800, 0x800], [0x40004400, 0x800], [0x40007000, 0x800], [0x40010000, 0x100], [0x40012000, 0x400], [0x40013000, 0x5000], [0x40020000, 0x2400], [0x40023800, 0x800], [0x40026000, 0x800], [0xe000e000, 0x2000]]);
 export class Board {
-  constructor(memory, image, {mapping = {}, onMidi = () => {}, transport = 'usb', cyclesPerInstruction = 16, syncConnected = false, critical = null} = {}) {
+  constructor(memory, image, {mapping = {}, onMidi = () => {}, transport = 'usb', cyclesPerInstruction = 16, syncConnected = false, critical = null, flashTiming = {}} = {}) {
     if (!Number.isInteger(cyclesPerInstruction) || cyclesPerInstruction < 1 || cyclesPerInstruction > 64) throw Error('Invalid virtual instruction timing');
-    this.critical = critical; this.mem = memory; this.flash = new SpiFlash(image.spi, critical); this.panel = new Panel(mapping); this.usb = new UsbDevice(this);
+    this.critical = critical; this.mem = memory; this.flash = new SpiFlash(image.spi, critical, {...flashTiming, clock: () => this.cycles}); this.panel = new Panel(mapping); this.usb = new UsbDevice(this);
     this.ticks = 0; this.cycles = 0; this.cyclesPerInstruction = cyclesPerInstruction; this.timers = new Set(); this.fraction = new Map(); this.dmaReload = new Map();
     this.flashRx = []; this.panelRx = []; this.scanPosition = 0; this.uartRx = new Map([[0x40004400, []], [0x40004800, []]]);
     this.powerButton = false; this.poweredOff = false; this.syncConnected = syncConnected;
@@ -16,7 +16,7 @@ export class Board {
     this.nextServiceTick = 128;
     this.flashKey = 0; this.flashControl = 0x80000000; this.adc = 0xc000; this.lastPanelDma = 0; this.trace = []; this.midiOut = [];
     this.onMidi = onMidi; this.transport = transport; this.parsers = new Map();
-    this.approximations = new Set(['instruction-time-clock', 'panel-electrical-timing', 'led-colorimetry', 'display-controller-commands', 'register-only-config-blocks', 'instantaneous-flash-completion', 'usb-fs-transaction-time']);
+    this.approximations = new Set(['instruction-time-clock', 'panel-electrical-timing', 'led-colorimetry', 'display-controller-commands', 'register-only-config-blocks', 'uncalibrated-flash-latency', 'usb-fs-transaction-time']);
   }
   get(a, n = 4) { return this.mem.get(a, n); }
   outputLevels() { return outputLevels(this); }
@@ -25,6 +25,7 @@ export class Board {
   record(value) { this.trace.push(value); if (this.trace.length > 1024) this.trace.shift(); }
   advance(instructions = 1) {
     this.ticks += instructions; this.cycles += this.cyclesPerInstruction * instructions;
+    if (this.flash.operation && this.cycles >= this.flash.operation.deadline) this.flash.advance();
     if (this.cycles >= this.nextTimerCycle) this.syncTimers();
     if (this.ticks >= this.nextServiceTick) {
       this.completeDma(); this.usb.service(); this.scheduleService();
@@ -116,7 +117,7 @@ export class Board {
       this.flashControl = v;
       if ((v & 0x10002) === 0x10002) { const sector = v >>> 3 & 15; if (sector >= 4 || v & 0x80000000) throw Error('Unsupported flash erase'); for (const base of [0x200000, 0x8000000]) this.mem.write(base + sector * 16384, new Uint8Array(16384).fill(255)); this.flashControl &= ~0x10000; }
     }
-    if (a === 0x40020418 && v & 0x800000 && this.get(0x40020414) & 128) this.poweredOff = true; // PB7 power-hold released by firmware
+    if (a === 0x40020418 && v & 0x800000 && this.get(0x40020414) & 128) { this.flash.powerCut(); this.poweredOff = true; } // PB7 power-hold released by firmware
     for (let base = 0x40020000; base < 0x40022400; base += 1024) if (a === base + 24) this.put(base + 20, (this.get(base + 20) | (v & 65535)) & ~(v >>> 16));
     if (a === 0x40020418) { if (v & 0x02000000) this.flash.select(true); if (v & 512) this.flash.select(false); if (v & 0x10000) this.panel.latch(false); if (v & 1) this.panel.latch(true); }
     if (a === 0x4000380c) { if (![1, 2].includes(n)) throw Error('SPI word width'); for (let i = n - 1; i >= 0; i--) this.flashRx.push(this.flash.exchange(v >>> (i * 8) & 255)); }
@@ -197,5 +198,5 @@ export class Board {
       if (tc & (count === 128 ? 8 : 16)) this.pend(59); this.lastPanelDma = this.cycles;
     }
   }
-  report() { return {poweredOff: this.poweredOff, powerButton: this.powerButton, ticks: this.ticks, virtualCycles: this.cycles, approximations: [...this.approximations].sort(), flashWrites: this.flash.writes, trace: this.trace, midiOut: this.midiOut, usb: {phase: this.usb.phase, queuedPackets: this.usb.pending.length}}; }
+  report() { return {poweredOff: this.poweredOff, powerButton: this.powerButton, ticks: this.ticks, virtualCycles: this.cycles, approximations: [...this.approximations].sort(), flashWrites: this.flash.writes, flashBusy: !!this.flash.operation, flashDelays: this.flash.delays, trace: this.trace, midiOut: this.midiOut, usb: {phase: this.usb.phase, queuedPackets: this.usb.pending.length}}; }
 }

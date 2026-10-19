@@ -27,13 +27,23 @@ export class Panel {
     this.encoders = Object.fromEntries(ENCODERS.map(n => [n, 0])); this.leds = Object.fromEntries([...BUTTONS, ...PADS].map(n => [n, 0]));
     for (const [name, wire] of Object.entries(mapping)) if (!(name in this.buttons) || !Array.isArray(wire) || wire.length !== 2 || !wire.every(Number.isInteger) || wire[0] < 0 || wire[0] >= 48 || wire[1] < 0 || wire[1] >= 8) throw Error('Invalid panel wiring');
     this.mapping = mapping; this.rx = new Uint8Array(48).fill(255); this.display = new Uint8Array(8192); this.displayFrames = 0; this.events = []; this.row = 0;
+    this.rawMasks = new Uint32Array(8); this.rawBits = new Uint32Array(8);
     this.encoderPhase = Array(6).fill(0); this.encoderEdges = Array.from({length: 6}, () => []);
     this.shiftTx = []; this.shiftRx = new Uint8Array(6); this.selectedRow = 0; this.triggers = 0;
     this.ledRows = Array.from({length: 8}, () => Array(32).fill(0)); this.ledCounts = Array(32).fill(0); this.ledSamples = 0; this.ledRow = 0;
   }
   event(event, tick) {
     const {type, control, down, delta} = event;
-    if (type === 'button' && control in this.buttons && typeof down === 'boolean') {
+    if (type === 'panel-bit' && Number.isInteger(event.row) && event.row >= 0 && event.row < 8 &&
+        Number.isInteger(event.bit) && event.bit >= 0 && event.bit < 32 && [0, 1].includes(event.value)) {
+      // Raw serial-input bit capture: bypass the inferred named-control wiring.
+      this.rawMasks[event.row] |= 1 << event.bit;
+      this.rawBits[event.row] = (this.rawBits[event.row] & ~(1 << event.bit)) | (event.value << event.bit);
+    } else if (type === 'encoder-lines' && ENCODERS.includes(control) && Number.isInteger(event.value) && event.value >= 0 && event.value < 4) {
+      // Electrical line changes happen at event time, without scan-paced detents.
+      const index = ENCODERS.indexOf(control);
+      this.encoderEdges[index].length = 0; this.encoderPhase[index] = GRAY.indexOf(event.value);
+    } else if (type === 'button' && control in this.buttons && typeof down === 'boolean') {
       this.buttons[control] = down;
       const wire = this.mapping[control]; if (wire) { if (down) this.rx[wire[0]] &= ~(1 << wire[1]); else this.rx[wire[0]] |= 1 << wire[1]; }
     } else if (type === 'encoder' && control in this.encoders && Number.isInteger(delta) && Math.abs(delta) <= 128) {
@@ -49,6 +59,7 @@ export class Panel {
     let bits = 0;
     for (const [name, bit] of INPUT_ROWS[row]) if (this.buttons[name]) bits |= 1 << bit;
     for (let i = 0; i < 6; i++) bits |= GRAY[this.encoderPhase[i]] << ENCODER_BITS[ENCODERS[i]];
+    bits = (bits & ~this.rawMasks[row]) | this.rawBits[row];
     const b = Array.from({length: 4}, (_, i) => bits >>> (i * 8) & 255);
     // Fifteen serial clocks precede the 32 input bits in an eight-byte scan.
     return Uint8Array.of(0, b[0] >>> 7, b[0] << 1 | b[1] >>> 7, b[1] << 1 | b[2] >>> 7, b[2] << 1 | b[3] >>> 7, b[3] << 1, 0, 0);

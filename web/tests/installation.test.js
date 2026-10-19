@@ -43,7 +43,7 @@ test('installation permission requires an exact complete ordered transfer of the
 test('authorized SPI install permits expected bytes but rejects a differing byte before mutation', () => {
   for (const valid of [true, false]) {
     const critical = monitor(), flash = new SpiFlash(undefined, critical);
-    const tx = data => { flash.select(true); try { return data.map(byte => flash.exchange(byte)); } finally { flash.select(false); } };
+    const tx = data => { flash.select(true); try { return data.map(byte => flash.exchange(byte)); } finally { flash.select(false); flash.advance(flash.now + 262144); } };
     flash.data.fill(0, 0, 0x30001);
     tx([6]); tx([216, 0, 0, 0]);
     assert.equal(flash.data[0xffff], 255); assert.equal(flash.data[0x10000], 0);

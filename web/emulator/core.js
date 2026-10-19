@@ -124,7 +124,24 @@ export class Machine {
     for (const e of events) { if (!Number.isInteger(e.tick) || e.tick < last) throw Error('Replay must be ordered and in the future'); last = e.tick; }
     this.events = structuredClone(events); this.eventIndex = 0;
   }
+  replayCycles(events) {
+    // Captures use modeled 216 MHz cycle timestamps, never browser wall time.
+    // Delivery is at the next instruction boundary; expose that quantization.
+    if (!Array.isArray(events) || events.length > 100000) throw Error('Invalid cycle replay');
+    const {cycles, ticks, cyclesPerInstruction: ratio} = this.board;
+    let last = cycles, maxQuantizationCycles = 0;
+    const replay = events.map(event => {
+      if (!Number.isSafeInteger(event.cycle) || event.cycle < last) throw Error('Cycle replay must be ordered and in the future');
+      last = event.cycle;
+      const offset = Math.ceil((event.cycle - cycles) / ratio);
+      maxQuantizationCycles = Math.max(maxQuantizationCycles, cycles + offset * ratio - event.cycle);
+      return {...event, tick: ticks + offset};
+    });
+    this.replay(replay);
+    return {cyclesPerInstruction: ratio, maxQuantizationCycles, eventCount: replay.length};
+  }
   queueEvent(event, tick) {
+    if (!Number.isSafeInteger(tick) || tick < 0) throw Error('Invalid input timestamp');
     if (tick <= this.board.ticks) return this.event(event);
     if (this.eventIndex) { this.events = this.events.slice(this.eventIndex); this.eventIndex = 0; }
     if (this.events.length >= 100000) throw Error('Input queue full');
