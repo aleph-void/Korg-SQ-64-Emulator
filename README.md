@@ -26,6 +26,16 @@ Both embedded and standalone browser emulators also provide **Send a second firm
 
 For a physical device, open **Device tools**, select **Enable MIDI access**, grant SysEx permission, and select the SQ-64 sequencer input/output. Firmware transfer uses update mode; backup uses normal mode. Files stay in browser memory. Transfer acknowledgement does not prove programming completion; the UI asks for device confirmation. After restoring, use the power button and wait for shutdown before restarting and reading back. The browser workbench has a **Power off** button for this sequence. Its startup buttons reset immediately; closing the page discards the emulator session. Restore acknowledgement alone does not prove persistence.
 
+## Run it
+
+```sh
+./run-korg-sq-64.sh                   # --help for details
+```
+
+Starts the browser app above (`npm run dev`) on the workspace lab address
+`http://sq-64.avlab/` (10.77.0.91) when `tools/lab-net` is set up, otherwise
+on `http://localhost:14891/` (also from Windows). Ctrl-C stops it.
+
 ## Test
 
 ```sh
