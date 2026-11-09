@@ -1,17 +1,17 @@
 # Browser model coverage
 
-The browser engine executes supplied ARM Thumb firmware with Unicorn's Cortex-M7 CPU model. Private stock 2.03 and caller-owned custom native56 2.04 checks now pass USB startup, panel input, both update directions, and backup/restore across normal shutdown and cold restart. Firmware images, decoded displays, checkpoints, and populated backups stay outside the public projects. These are bounded software compatibility results, not hardware certification.
+The browser engine executes supplied ARM Thumb firmware with Unicorn's Cortex-M7 CPU model. Private stock 2.03 and caller-owned custom native56 2.04 checks now pass USB startup, panel input, both update directions, and backup/restore across normal shutdown and cold restart. Firmware images, decoded displays, checkpoints, and populated backups stay outside the public projects. These are bounded software compatibility results, not hardware certification. A community [real-device comparison](hardware-comparison.md) has since confirmed that update mode, the Version screen, the panel controls used, Global settings, project save/load and USB MIDI output on a physical SQ-64 match the emulator for a modified 2.03 image.
 
 | Area | Implemented and exercised | Remaining evidence |
 | --- | --- | --- |
 | CPU | Cortex-M7 execution, integer/FPU exception frames, MSP/PSP, interrupt masks/priorities, IT-state handling, alignment guards | Wider interrupt/FP schedules and faults |
 | Memory | Flash aliases, SRAM, ELF/VSB loaders, installed-flash restart | Full board protection and reserved-region ownership |
 | SPI NOR | 16 MiB, CS-delimited page latch, BUSY/WEL, delayed program/erase, NOR bit clearing, saved slots 0 and 63 | Physical part identity, real busy timing, protected/calibration ranges |
-| USB | Cold enumeration, identity, sequencer cable routing, real update/backup traffic | Electrical behavior, complete controller semantics and timing |
-| Panel | All 85 buttons, six quadrature encoders, firmware-driven LED scans, Version/Update boot chords | Independent physical wiring captures and electrical timing |
+| USB | Cold enumeration, identity, sequencer cable routing, real update/backup traffic | Electrical behavior, complete controller semantics and timing (USB MIDI message content and order matched a real device) |
+| Panel | All 85 buttons, six quadrature encoders, firmware-driven LED scans, Version/Update boot chords | Independent physical wiring captures and electrical timing (controls used in the real-device comparison behaved identically) |
 | LEDs/display | Continuous LED brightness from firmware PWM samples, including named transport controls; readable 256×64 display DMA output | Hardware LED colors/brightness and complete display-controller commands |
 | Power | Active-low power-button input and firmware-controlled power-hold output | Electrical power-loss behavior |
-| Update | Both stock→custom and custom→stock; all 224 packets, exact installed internal/SPI code bytes, Version-screen reboot | Physical-device browser trials and interrupted programming |
+| Update | Both stock→custom and custom→stock; all 224 packets, exact installed internal/SPI code bytes, Version-screen reboot | Browser-updater-to-device trials and interrupted programming (device updates with the official Windows updater are confirmed; see [real-device comparison](hardware-comparison.md)) |
 | Backup/restore | Current project plus populated first/last saved slots; melody and rhythm; exact 95-record readback after normal shutdown and cold restart | Wider edited-pattern fixtures, concurrent performance, arbitrary candidates |
 | CV/gate/sync | 17 top-edge indicators from the CV stream, three gate pins and eight trigger latch bits | Complete output circuitry, calibrated jack voltages, sync traces and physical timing captures |
 
@@ -33,7 +33,7 @@ The Python backend remains a separate, less complete model; the browser compatib
 
 ## Further verification
 
-1. Confirm panel wiring, LED color channels, and display commands with independent physical captures.
+1. Confirm panel wiring, LED color channels, and display commands with independent physical captures. The [real-device comparison](hardware-comparison.md) found matching behavior for the controls it used, but not signal-level captures.
 2. Compare USB descriptors, FIFO traffic and endpoint timing against hardware.
 3. Establish reserved storage ownership and calibrated CV/gate/sync behavior before hardware conformance claims.
 4. Expand original diagnostic firmware and supplied-candidate tests for faults, scheduling, edited patterns and installation interruption.
