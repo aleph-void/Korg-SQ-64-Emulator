@@ -1,6 +1,14 @@
 # Real-device comparison
 
-The emulator has now been checked against a real SQ-64. A community user developed a modification of stock 2.03 (per-pattern Bank Select + Program Change on tracks A–C) almost entirely in the browser emulator, then flashed it to their own device. The report is in [aleph-void/Korg-SQ-64-Emulator#1](https://github.com/aleph-void/Korg-SQ-64-Emulator/issues/1). Everything below is that user's observation on one device. It is not a hardware certification, and it does not extend to arbitrary firmware.
+The emulator has been tested on real SQ-64 hardware by the project maintainer and by a community user. Neither is a hardware certification, and neither extends to arbitrary firmware.
+
+## Maintainer testing
+
+The maintainer has run firmware on their own SQ-64 and compared it with the emulator.
+
+## Community report
+
+A community user developed a modification of stock 2.03 (per-pattern Bank Select + Program Change on tracks A–C) almost entirely in the browser emulator, then flashed it to their own device. The report is in [aleph-void/Korg-SQ-64-Emulator#1](https://github.com/aleph-void/Korg-SQ-64-Emulator/issues/1). The lists below are that user's observations on their device.
 
 ## Behavior that matched the emulator
 

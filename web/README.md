@@ -176,7 +176,7 @@ Both pages are installable web apps: the root page installs as **SQ-64 Tools** a
 
 Current browser engines with WebAssembly, BigInt and module workers can run the emulator on Linux, macOS and Windows. The suite has been executed with Chromium on Linux. Physical MIDI access depends on the browser's Web MIDI/SysEx support. The GUI reports unavailable MIDI without preventing emulator use.
 
-The complete board model remains experimental. A real SQ-64 has matched the emulator for update mode, the Version screen, panel controls, settings, project save/load and USB MIDI output ([real-device comparison](../docs/hardware-comparison.md)). Even so, an emulator pass alone is not a reason to flash candidate firmware. Browsers throttle hidden tabs, so keep the emulator tab visible while it runs. DIN MIDI output is not shown in the UI. The included probe is original integration-test code, not a release for a real SQ-64.
+The complete board model remains experimental. The maintainer and a community user have tested on real SQ-64 hardware, which matched the emulator for update mode, the Version screen, panel controls, settings, project save/load and USB MIDI output ([real-device comparison](../docs/hardware-comparison.md)). Even so, an emulator pass alone is not a reason to flash candidate firmware. Browsers throttle hidden tabs, so keep the emulator tab visible while it runs. DIN MIDI output is not shown in the UI. The included probe is original integration-test code, not a release for a real SQ-64.
 
 ## Official firmware download
 
