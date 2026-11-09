@@ -176,12 +176,14 @@ Both pages are installable web apps: the root page installs as **SQ-64 Tools** a
 
 Current browser engines with WebAssembly, BigInt and module workers can run the emulator on Linux, macOS and Windows. The suite has been executed with Chromium on Linux. Physical MIDI access depends on the browser's Web MIDI/SysEx support. The GUI reports unavailable MIDI without preventing emulator use.
 
-The complete board model remains experimental. An emulator pass alone is not a reason to flash candidate firmware. The included probe is original integration-test code, not a release for a real SQ-64.
+The complete board model remains experimental. The maintainer and a community user have tested on real SQ-64 hardware, which matched the emulator for update mode, the Version screen, panel controls, settings, project save/load and USB MIDI output ([real-device comparison](../docs/hardware-comparison.md)). Even so, an emulator pass alone is not a reason to flash candidate firmware. Browsers throttle hidden tabs, so keep the emulator tab visible while it runs. DIN MIDI output is not shown in the UI. The included probe is original integration-test code, not a release for a real SQ-64.
 
 ## Official firmware download
 
 The update panel and the emulator page link directly to Korg's official updater ZIP and download page. Download the ZIP in the browser, extract the single `.VSB`, and load it as a local file. The app never fetches from `cdn.korg.com` itself: the CDN omits browser CORS permission, so an in-app download is not possible, and there is no proxy or fallback flow. No vendor firmware is bundled or uploaded.
 
+If you flash a device with Korg's own Windows updater (`kmupdate.exe`), note that it silently uses the `.vsb` in its own folder. Keep exactly one image per updater folder. See [official updater notes](../docs/hardware-comparison.md#official-updater-notes-kmupdateexe-203-windows) for its other quirks.
+
 ## Startup speed
 
-Load the extracted firmware in the **Browser emulator** section, then press **Power on**. The updater's file selector is separate. Startup runs real firmware initialization; its first display frame and USB readiness occur at different times. A blank initial display does not mean execution has stopped. The workbench shows startup status above the instrument and an increasing instruction count under **Inspect**. On the test host, stock/custom cold starts showed their first frame after about four seconds and configured USB after approximately one minute.
+Load the extracted firmware in the **Browser emulator** section, then press **Power on**. The updater's file selector is separate. Startup runs real firmware initialization; its first display frame and USB readiness occur at different times. A blank initial display does not mean execution has stopped. The workbench shows startup status above the instrument and an increasing instruction count under **Inspect**. On the test host, stock/custom cold starts showed their first frame after about four seconds and configured USB after approximately one minute (about 27 seconds since release 0.1.1). Slower hosts take longer: one user reported a cold boot of about three minutes. A real device boots much faster.
